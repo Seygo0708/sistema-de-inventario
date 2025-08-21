@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sistema de Inventario</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+    <div id="login" class="login-container">
+        <div class="login-card">
+            <img src="avatar.png" alt="Logo" class="avatar" />
+            <h2>INICIAR SESIÓN</h2>
+            <input type="text" id="username" placeholder="Usuario" />
+            <input type="password" id="password" placeholder="Contraseña" />
+            <select id="role">
+                <option value="Usuario">Mecánico</option>
+                <option value="admin">Administrador</option>
+            </select>
+            <button onclick="login()">Ingresar</button>
+
+            <div class="credits">
+                <h5>Creado por estudiante:</h5>
+                <h5><a href="mailto:alvarezsosarocio@gmail.com?subject=SOPORTE&body=NOMBRE%20Y%20APELLIDOS%3A%0ACORREO%3A%0ANUMERO%20DE%20CELULAR%3A" class="resaltado">Alexandra Rocio</a></h5>
+                <h5>Respaldado por estudiante Ing. de Sistemas:</h5>
+                <h5><a href="mailto:cseygomax@gmail.com?subject=SOPORTE&body=NOMBRE%20Y%20APELLIDOS%3A%0ACORREO%3A%0ANUMERO%20DE%20CELULAR%3A" class="resaltado">Seygo Castro</a></h5>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard-admin" class="dashboard" style="display:none;">
+        <div class="dashboard-header">
+            <h2>Panel Administrador 👩🏻‍💼</h2>
+        </div>
+
+        <div id="stock-notification-container" class="notification-container" style="display:none;">
+            <p>¡Alerta de Stock Bajo! Revisa los siguientes productos:</p>
+            <ul id="stock-low-list"></ul>
+        </div>
+        
+        <div class="admin-icon-menu">
+            <div class="icon-item" onclick="mostrarApartado('entrada')" aria-label="Gestionar Entradas">
+                <img src="entrada-icon.png" alt="Entrada" />
+                <span>Entrada</span>
+            </div>
+            <div class="icon-item" onclick="mostrarApartado('salida')" aria-label="Gestionar Salidas">
+                <img src="salida-icon.png" alt="Salida" />
+                <span>Salida</span>
+            </div>
+            <div class="icon-item" onclick="mostrarApartado('stock')" aria-label="Ver Stock Actual">
+                <img src="stock-icon.png" alt="Stock" />
+                <span>Stock</span>
+            </div>
+            <div class="icon-item" onclick="mostrarApartado('inventario')" aria-label="Ver Inventario Completo y Agregar Productos">
+                <img src="inventario-icon.png" alt="Inventario Completo" />
+                <span>Inventario Completo</span>
+            </div>
+            <div class="icon-item" onclick="exportarExcel()" aria-label="Exportar Datos a Excel">
+                <img src="exportar-icon.png" alt="Exportar Excel" />
+                <span>Exportar Excel</span>
+            </div>
+            <div class="icon-item" onclick="logout()" aria-label="Cerrar Sesión">
+                <img src="logout-icon.png" alt="Cerrar Sesión" />
+                <span>Cerrar Sesión</span>
+            </div>
+        </div>
+
+        <section id="apartado-entrada" class="admin-section" style="display:none;">
+            <div class="section-header">
+                <img src="entrada-icon.png" alt="Entrada" class="section-icon" />
+                <h3>Entrada de Productos</h3>
+            </div>
+            <form id="form-entrada">
+                <input type="text" id="entrada-codigo" placeholder="Código" required oninput="autocompletarNombreEntrada()" />
+                <input type="text" id="entrada-nombre" placeholder="Nombre" required />
+                <input type="number" id="entrada-cantidad" placeholder="Cantidad a ingresar (max 100)" min="1" max="100" required />
+                <input type="date" id="entrada-fecha" required />
+                <button type="submit">Registrar Entrada</button>
+            </form>
+
+            <h4>Historial de Entradas</h4>
+            <div class="table-responsive">
+                <table id="tabla-entradas-historial" border="1" cellpadding="8" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Cantidad</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <button class="btn-regresar-bottom" onclick="mostrarApartado('')">Regresar</button>
+        </section>
+
+        <section id="apartado-salida" class="admin-section" style="display:none;">
+            <div class="section-header">
+                <img src="salida-icon.png" alt="Salida" class="section-icon" />
+                <h3>Salida de Productos</h3>
+            </div>
+            <form id="form-salida">
+                <input type="text" id="salida-codigo" placeholder="Código" required oninput="autocompletarNombreSalida()" />
+                <input type="text" id="salida-nombre" placeholder="Nombre" required />
+                <input type="text" id="salida-cliente" placeholder="Cliente" required />
+                <input type="text" id="salida-numero-ot" placeholder="Número OT" required />
+                <input type="number" id="salida-cantidad" placeholder="Cantidad a salir" min="1" required />
+                <input type="text" id="salida-placa" placeholder="Placa" />
+                <input type="number" id="salida-kilometraje" placeholder="Kilometraje" min="0" />
+                <button type="submit">Registrar Salida</button>
+            </form>
+
+            <h4>Repuestos de Salida</h4>
+            <div class="table-responsive">
+                <table id="tabla-salida" border="1" cellpadding="8" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Repuesto</th>
+                            <th>Cliente</th>
+                            <th>Número OT</th>
+                            <th>Cantidad</th>
+                            <th>Placa</th>
+                            <th>Kilometraje</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <button class="btn-regresar-bottom" onclick="mostrarApartado('')">Regresar</button>
+        </section>
+
+        <section id="apartado-stock" class="admin-section" style="display:none;">
+            <div class="section-header">
+                <img src="stock-icon.png" alt="Stock" class="section-icon" />
+                <h3>Stock Actual</h3>
+            </div>
+            <input type="text" id="buscar-stock" placeholder="Buscar por nombre..." oninput="filtrarStock()" />
+            <div class="table-responsive">
+                <table id="tabla-stock-admin" border="1" cellpadding="8" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Fecha de Última Actualización</th>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Stock</th>
+                            <th>Costo Unitario</th>
+                            <th>Precio Venta</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <button class="btn-regresar-bottom" onclick="mostrarApartado('')">Regresar</button>
+        </section>
+
+        <section id="apartado-inventario" class="admin-section" style="display:none;">
+            <div class="section-header">
+                <img src="inventario-icon.png" alt="Inventario" class="section-icon" />
+                <h3>Inventario Completo</h3>
+            </div>
+
+            <div class="sub-section-container">
+                <h4>Agregar Nuevo Producto</h4>
+                <form id="form-agregar-producto">
+                    <input type="text" id="nuevo-codigo" placeholder="Código del producto" required oninput="autocompletarNombreAgregarProducto()" />
+                    <input type="text" id="nuevo-nombre" placeholder="Nombre del producto" required />
+                    <input type="text" id="nuevo-lote" placeholder="Lote" />
+                    <input type="number" id="nuevo-costo-unitario" placeholder="Costo Unitario (S/.)" min="0" step="0.01" required />
+                    <input type="number" id="nuevo-precio-venta" placeholder="Precio de Venta (S/.)" min="0" step="0.01" required />
+                    <input type="number" id="nuevo-stock" placeholder="Stock inicial (máx 500)" min="0" max="500" required />
+                    <input type="date" id="nuevo-producto-fecha" required />
+                    <button type="submit">Agregar Producto</button>
+                </form>
+            </div>
+
+            <div class="table-responsive">
+                <table id="tabla-inventario" border="1" cellpadding="8" cellspacing="0" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>Fecha de Registro/Actualización</th>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Lote</th>
+                            <th>Costo Unitario</th>
+                            <th>Precio Venta</th>
+                            <th>Stock</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <button class="btn-regresar-bottom" onclick="mostrarApartado('')">Regresar</button>
+        </section>
+    </div>
+
+    <div id="dashboard-mecanico" class="dashboard" style="display:none;">
+        <h2>Panel Mecánico 👨🏻‍🔧 </h2>
+
+        <h3>Consultar Stock de Repuestos</h3>
+        <input type="text" id="buscar-repuesto-nombre" placeholder="Buscar repuesto por nombre..." oninput="filtrarRepuestosMecanicoPorNombre()" />
+        <div class="table-responsive">
+            <table id="tabla-stock" border="1" cellpadding="8" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>Fecha de Última Actualización</th>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Stock Actual</th>
+                        <th>Costo Unitario</th>
+                        <th>Precio Venta</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <h3>Solicitar Repuesto</h3>
+        <form id="form-solicitar-repuesto">
+            <input type="text" id="solicitar-nombre" placeholder="Nombre del repuesto" required />
+            <input type="number" id="solicitar-cantidad" placeholder="Cantidad" min="1" max="100" required />
+            <button type="submit">Solicitar</button>
+        </form>
+
+        <div class="logout-container">
+            <button onclick="logout()">Cerrr Sesión</button>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
+    </body>
+    </html>

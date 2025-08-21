@@ -1,0 +1,16 @@
+{
+  "name": "almacen",
+  "version": "1.0.0",
+  "main": "script.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/cli": "^7.4.1",
+    "@capacitor/core": "^7.4.1"
+  },
+  "description": ""
+}

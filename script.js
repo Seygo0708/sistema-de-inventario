@@ -1,0 +1,776 @@
+// --- CONFIGURACIÓN MEJORADA DE FIREBASE ---
+const firebaseConfig = {
+    apiKey: "AIzaSyD04XNtsa6sSGf3e2n9ma9TVysRYaYZE44",
+    authDomain: "sistemainventariojpa.firebaseapp.com",
+    databaseURL: "https://sistemainventariojpa-default-rtdb.firebaseio.com",
+    projectId: "sistemainventariojpa",
+    storageBucket: "sistemainventariojpa.appspot.com",
+    messagingSenderId: "246809530654",
+    appId: "1:246809530654:web:e8b13e432b5311966f390f",
+    measurementId: "G-RXCZS2EFZL"
+};
+
+let db;
+let isCheckingStock = false; // <<< NUEVA BANDERA GLOBAL
+
+// Función para inicializar Firebase
+async function initializeFirebase() {
+    try {
+        if (typeof firebase === 'undefined') {
+            throw new Error("Firebase no se cargó correctamente. Verifica tu conexión a internet o los scripts en tu HTML.");
+        }
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        db = firebase.firestore();
+        
+        console.log("Firebase inicializado correctamente");
+        return true;
+    } catch (error) {
+        console.error("Error al inicializar Firebase:", error);
+        return false;
+    }
+}
+
+// --- FUNCIONES DEL SISTEMA ---
+
+function login() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const role = document.getElementById('role').value;
+
+    if (username === '' || password === '') {
+        alert('Por favor complete todos los campos.');
+        return;
+    }
+
+    if ((role === 'admin' && username === 'admin' && password === '12456') ||
+        (role === 'Usuario' && username === 'mecanico' && password === '123456')) {
+        mostrarDashboard(role);
+    } else {
+        alert('Usuario o contraseña incorrectos.');
+    }
+}
+
+function mostrarDashboard(role) {
+    document.getElementById('login').style.display = 'none';
+
+    if (role === 'admin') {
+        document.getElementById('dashboard-admin').style.display = 'block';
+        mostrarApartado(''); // Muestra el menú principal del administrador
+    } else {
+        document.getElementById('dashboard-mecanico').style.display = 'block';
+        cargarStockMecanico();
+    }
+}
+
+function logout() {
+    document.getElementById('dashboard-admin').style.display = 'none';
+    document.getElementById('dashboard-mecanico').style.display = 'none';
+    document.getElementById('login').style.display = 'flex';
+
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+    document.getElementById('role').value = 'Usuario';
+}
+
+function mostrarApartado(nombre) {
+    const secciones = document.querySelectorAll('.admin-section');
+    secciones.forEach(sec => sec.style.display = 'none');
+
+    const menuIconos = document.querySelector('.admin-icon-menu');
+    const stockNotification = document.getElementById('stock-notification-container');
+
+    if (nombre === '') {
+        menuIconos.style.display = 'grid';
+        stockNotification.style.display = 'block'; // Mostrar notificación en el menú principal
+        verificarStockBajo(); // <-- Llamada principal aquí para el dashboard
+    } else {
+        menuIconos.style.display = 'none';
+        stockNotification.style.display = 'none'; // Ocultar notificación en otras secciones
+        const mostrar = document.getElementById('apartado-' + nombre);
+        if (mostrar) mostrar.style.display = 'block';
+
+        if (nombre === 'stock') {
+            cargarStockAdmin();
+            document.getElementById('buscar-stock').value = '';
+        } else if (nombre === 'salida') {
+            cargarRepuestosSalida();
+            document.getElementById('form-salida').reset();
+            document.getElementById('salida-nombre').value = '';
+        } else if (nombre === 'inventario') {
+            cargarInventarioCompleto();
+            document.getElementById('form-agregar-producto').reset();
+            document.getElementById('nuevo-producto-fecha').valueAsDate = new Date();
+        } else if (nombre === 'entrada') {
+            document.getElementById('entrada-fecha').valueAsDate = new Date();
+            cargarHistorialEntradas();
+            document.getElementById('form-entrada').reset();
+        }
+    }
+}
+
+// --- FUNCIONES DE AUTOCOMPLETAR ---
+
+async function autocompletarNombreGenerico(codigoInputId, nombreInputId) {
+    const codigoInput = document.getElementById(codigoInputId);
+    const nombreInput = document.getElementById(nombreInputId);
+    const codigoBusqueda = codigoInput.value.trim().toUpperCase();
+
+    if (codigoBusqueda === '') {
+        nombreInput.value = '';
+        return;
+    }
+
+    if (!db) {
+        console.error("Firestore no está inicializado (autocompletarNombreGenerico)");
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('inventario').where('codigo', '==', codigoBusqueda).limit(1).get();
+
+        if (!querySnapshot.empty) {
+            const productoEncontrado = querySnapshot.docs[0].data();
+            nombreInput.value = productoEncontrado.nombre;
+        } else {
+            nombreInput.value = '';
+        }
+    } catch (error) {
+        console.error("Error al autocompletar nombre:", error);
+        nombreInput.value = '';
+    }
+}
+
+function autocompletarNombreEntrada() {
+    autocompletarNombreGenerico('entrada-codigo', 'entrada-nombre');
+}
+
+function autocompletarNombreSalida() {
+    autocompletarNombreGenerico('salida-codigo', 'salida-nombre');
+}
+
+function autocompletarNombreAgregarProducto() {
+    autocompletarNombreGenerico('nuevo-codigo', 'nuevo-nombre');
+}
+
+// --- FUNCIONES CRUD ---
+
+async function agregarNuevoProducto(event) {
+    event.preventDefault();
+
+    const codigo = document.getElementById('nuevo-codigo').value.trim().toUpperCase();
+    const nombre = document.getElementById('nuevo-nombre').value.trim().toUpperCase();
+    const costoUnitario = parseFloat(document.getElementById('nuevo-costo-unitario').value);
+    const precioVenta = parseFloat(document.getElementById('nuevo-precio-venta').value);
+    const stock = parseInt(document.getElementById('nuevo-stock').value);
+    const lote = document.getElementById('nuevo-lote').value.trim();
+    const fechaActualizacion = document.getElementById('nuevo-producto-fecha').value;
+
+    if (!codigo || !nombre || isNaN(stock) || stock < 0 || isNaN(costoUnitario) || isNaN(precioVenta) || !fechaActualizacion) {
+        alert('Por favor complete todos los campos obligatorios correctamente.');
+        return;
+    }
+
+    if (!db) {
+        console.error("Firestore no está inicializado (agregarNuevoProducto)");
+        alert("El sistema no está listo. Intente nuevamente.");
+        return;
+    }
+    
+    try {
+        const existeCodigoQuery = await db.collection('inventario').where('codigo', '==', codigo).get();
+        if (!existeCodigoQuery.empty) {
+            alert('Ya existe un producto con este código.');
+            return;
+        }
+        
+        const existeNombreQuery = await db.collection('inventario').where('nombre', '==', nombre).get();
+        if (!existeNombreQuery.empty) {
+            alert('Ya existe un producto con este nombre.');
+            return;
+        }
+
+        await db.collection('inventario').add({
+            codigo: codigo,
+            nombre: nombre,
+            lote: lote,
+            costoUnitario: costoUnitario.toFixed(2),
+            precioVenta: precioVenta.toFixed(2),
+            stock: stock,
+            fechaActualizacion: fechaActualizacion
+        });
+
+        alert(`Producto "${nombre}" agregado exitosamente a la base de datos.`);
+        document.getElementById('form-agregar-producto').reset();
+        document.getElementById('nuevo-producto-fecha').valueAsDate = new Date();
+        cargarInventarioCompleto();
+        verificarStockBajo(); // Volver a verificar stock después de agregar un producto
+    } catch (error) {
+        console.error("Error al agregar producto: ", error);
+        alert("Hubo un error al guardar el producto.");
+    }
+}
+
+async function agregarEntrada(event) {
+    event.preventDefault();
+    const codigo = document.getElementById('entrada-codigo').value.trim().toUpperCase();
+    const cantidad = parseInt(document.getElementById('entrada-cantidad').value);
+    const fecha = document.getElementById('entrada-fecha').value;
+
+    if (!codigo || isNaN(cantidad) || cantidad <= 0 || !fecha) {
+        alert('Por favor complete los campos correctamente.');
+        return;
+    }
+
+    if (!db) {
+        console.error("Firestore no está inicializado (agregarEntrada)");
+        alert("El sistema no está listo. Intente nuevamente.");
+        return;
+    }
+    
+    try {
+        const querySnapshot = await db.collection('inventario').where('codigo', '==', codigo).get();
+        
+        if (querySnapshot.empty) {
+            alert('Producto no encontrado. Use "Inventario Completo" para añadir nuevos ítems.');
+            return;
+        }
+
+        const productoDoc = querySnapshot.docs[0];
+        const productoData = productoDoc.data();
+
+        await db.collection('inventario').doc(productoDoc.id).update({
+            stock: firebase.firestore.FieldValue.increment(cantidad),
+            fechaActualizacion: fecha
+        });
+        
+        await db.collection('historialEntradas').add({
+            fecha: fecha,
+            codigo: codigo,
+            nombre: productoData.nombre,
+            cantidad: cantidad
+        });
+
+        alert(`Entrada registrada: ${cantidad} unidades de ${productoData.nombre}`);
+        document.getElementById('form-entrada').reset();
+        document.getElementById('entrada-fecha').valueAsDate = new Date();
+        cargarInventarioCompleto();
+        cargarHistorialEntradas();
+        verificarStockBajo(); // Volver a verificar stock después de una entrada
+        
+    } catch(error) {
+        console.error("Error al registrar entrada: ", error);
+        alert("Hubo un error al registrar la entrada.");
+    }
+}
+
+async function agregarSalida(event) {
+    event.preventDefault();
+    const codigo = document.getElementById('salida-codigo').value.trim().toUpperCase();
+    const cantidad = parseInt(document.getElementById('salida-cantidad').value);
+    const cliente = document.getElementById('salida-cliente').value.trim();
+    const numeroOT = document.getElementById('salida-numero-ot').value.trim();
+    const placa = document.getElementById('salida-placa').value.trim();
+    const kilometraje = document.getElementById('salida-kilometraje').value || 0;
+
+    if (!codigo || isNaN(cantidad) || cantidad <= 0 || !cliente || !numeroOT) {
+        alert('Por favor complete código, cantidad, cliente y Número OT correctamente.');
+        return;
+    }
+
+    if (!db) {
+        console.error("Firestore no está inicializado (agregarSalida)");
+        alert("El sistema no está listo. Intente nuevamente.");
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('inventario').where('codigo', '==', codigo).get();
+
+        if (querySnapshot.empty) {
+            alert('El producto no existe en inventario.');
+            return;
+        }
+
+        const productoDoc = querySnapshot.docs[0];
+        const productoData = productoDoc.data();
+
+        if (productoData.stock < cantidad) {
+            alert(`Stock insuficiente. Stock actual de ${productoData.nombre}: ${productoData.stock}`);
+            return;
+        }
+        
+        const fechaSalida = new Date().toISOString().slice(0, 10);
+
+        await db.collection('inventario').doc(productoDoc.id).update({
+            stock: firebase.firestore.FieldValue.increment(-cantidad),
+            fechaActualizacion: fechaSalida
+        });
+        
+        await db.collection('repuestosSalida').add({
+            fecha: fechaSalida,
+            repuesto: productoData.nombre,
+            cliente: cliente,
+            numeroOT: numeroOT,
+            cantidad: cantidad,
+            placa: placa,
+            kilometraje: kilometraje
+        });
+
+        alert(`Salida registrada: ${cantidad} unidades de ${productoData.nombre}`);
+        document.getElementById('form-salida').reset();
+        cargarRepuestosSalida();
+        cargarInventarioCompleto();
+        verificarStockBajo(); // Volver a verificar stock después de una salida
+        
+    } catch (error) {
+        console.error("Error al registrar salida: ", error);
+        alert("Hubo un error al registrar la salida.");
+    }
+}
+
+// --- FUNCIONES DE CARGA DE TABLAS ---
+
+async function cargarStockAdmin() {
+    const tbody = document.querySelector('#tabla-stock-admin tbody');
+    tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
+
+    if (!db) {
+        tbody.innerHTML = '<tr><td colspan="6">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarStockAdmin)");
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('inventario').orderBy('nombre').get();
+        tbody.innerHTML = '';
+
+        if(querySnapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="6">No hay productos.</td></tr>';
+            return;
+        }
+
+        querySnapshot.forEach(doc => {
+            const item = doc.data();
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.fechaActualizacion || 'N/A'}</td>
+                <td>${item.codigo}</td>
+                <td>${item.nombre}</td>
+                <td>${item.stock}</td>
+                <td>S/ ${parseFloat(item.costoUnitario).toFixed(2)}</td>
+                <td>S/ ${parseFloat(item.precioVenta).toFixed(2)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error("Error al cargar stock del administrador: ", error);
+        tbody.innerHTML = '<tr><td colspan="6">Error al cargar datos.</td></tr>';
+    }
+}
+
+async function cargarRepuestosSalida() {
+    const tbody = document.querySelector('#tabla-salida tbody');
+    tbody.innerHTML = '<tr><td colspan="7">Cargando...</td></tr>';
+    
+    if (!db) {
+        tbody.innerHTML = '<tr><td colspan="7">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarRepuestosSalida)");
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('repuestosSalida').orderBy('fecha', 'desc').get();
+        tbody.innerHTML = '';
+        
+        if(querySnapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="7">No hay salidas registradas.</td></tr>';
+            return;
+        }
+
+        querySnapshot.forEach(doc => {
+            const item = doc.data();
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.fecha}</td>
+                <td>${item.repuesto}</td>
+                <td>${item.cliente}</td>
+                <td>${item.numeroOT}</td>
+                <td>${item.cantidad}</td>
+                <td>${item.placa}</td>
+                <td>${item.kilometraje}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error("Error al cargar repuestos de salida: ", error);
+        tbody.innerHTML = '<tr><td colspan="7">Error al cargar datos.</td></tr>';
+    }
+}
+
+async function cargarHistorialEntradas() {
+    const tbody = document.querySelector('#tabla-entradas-historial tbody');
+    tbody.innerHTML = '<tr><td colspan="4">Cargando...</td></tr>';
+
+    if (!db) {
+        tbody.innerHTML = '<tr><td colspan="4">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarHistorialEntradas)");
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('historialEntradas').orderBy('fecha', 'desc').get();
+        tbody.innerHTML = '';
+
+        if(querySnapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="4">No hay entradas registradas.</td></tr>';
+            return;
+        }
+
+        querySnapshot.forEach(doc => {
+            const item = doc.data();
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.fecha}</td>
+                <td>${item.codigo}</td>
+                <td>${item.nombre}</td>
+                <td>${item.cantidad}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error("Error al cargar historial de entradas: ", error);
+        tbody.innerHTML = '<tr><td colspan="4">Error al cargar datos.</td></tr>';
+    }
+}
+
+async function cargarInventarioCompleto() {
+    const tbody = document.querySelector('#tabla-inventario tbody');
+    tbody.innerHTML = '<tr><td colspan="8">Cargando...</td></tr>';
+    
+    if (!db) {
+        tbody.innerHTML = '<tr><td colspan="8">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarInventarioCompleto)");
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('inventario').orderBy('nombre').get();
+        tbody.innerHTML = '';
+
+        if(querySnapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="8">No hay productos.</td></tr>';
+            return;
+        }
+        
+        querySnapshot.forEach(doc => {
+            const item = doc.data();
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.fechaActualizacion || 'N/A'}</td>
+                <td>${item.codigo}</td>
+                <td>${item.nombre}</td>
+                <td>${item.lote || 'N/A'}</td>
+                <td>S/ ${parseFloat(item.costoUnitario).toFixed(2)}</td>
+                <td>S/ ${parseFloat(item.precioVenta).toFixed(2)}</td>
+                <td>${item.stock}</td>
+                <td class="action-buttons">
+                    <button class="btn-actualizar" onclick="actualizarProducto('${doc.id}')">Actualizar</button>
+                    <button class="btn-eliminar" onclick="eliminarProducto('${doc.id}', '${item.nombre}')">Eliminar</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error("Error al cargar inventario completo: ", error);
+        tbody.innerHTML = '<tr><td colspan="8">Error al cargar datos.</td></tr>';
+    }
+}
+
+async function eliminarProducto(docId, nombre) {
+    if (confirm(`¿Estás seguro de que quieres eliminar el producto "${nombre}"? Esta acción no se puede deshacer.`)) {
+        if (!db) {
+            console.error("Firestore no está inicializado (eliminarProducto)");
+            alert("El sistema no está listo. Intente nuevamente.");
+            return;
+        }
+        try {
+            await db.collection('inventario').doc(docId).delete();
+            alert('Producto eliminado exitosamente.');
+            cargarInventarioCompleto();
+            verificarStockBajo(); // Volver a verificar stock después de eliminar un producto
+        } catch (error) {
+            console.error("Error al eliminar producto: ", error);
+            alert("Hubo un error al eliminar el producto.");
+        }
+    }
+}
+
+async function actualizarProducto(docId) {
+    if (!db) {
+        console.error("Firestore no está inicializado (actualizarProducto)");
+        alert("El sistema no está listo. Intente nuevamente.");
+        return;
+    }
+    try {
+        const docRef = db.collection('inventario').doc(docId);
+        const docSnap = await docRef.get();
+
+        if (!docSnap.exists) {
+            alert("El producto que intentas actualizar ya no existe.");
+            return;
+        }
+
+        const producto = docSnap.data();
+
+        const nuevoNombre = prompt(`Actualizar nombre:`, producto.nombre);
+        if (nuevoNombre === null || nuevoNombre.trim() === '') { 
+            alert('Actualización cancelada.'); 
+            return; 
+        }
+
+        const nuevoLote = prompt(`Actualizar lote:`, producto.lote || '');
+        if (nuevoLote === null) { 
+            alert('Actualización cancelada.'); 
+            return; 
+        }
+
+        const nuevoCosto = prompt(`Actualizar costo unitario (S/.):`, producto.costoUnitario);
+        if (nuevoCosto === null || isNaN(parseFloat(nuevoCosto))) { 
+            alert('Actualización cancelada. El costo debe ser un número.'); 
+            return; 
+        }
+        const costoFloat = parseFloat(nuevoCosto);
+
+        const nuevoPrecio = prompt(`Actualizar precio de venta (S/.):`, producto.precioVenta);
+        if (nuevoPrecio === null || isNaN(parseFloat(nuevoPrecio))) { 
+            alert('Actualización cancelada. El precio debe ser un número.'); 
+            return; 
+        }
+        const precioFloat = parseFloat(nuevoPrecio);
+
+        const nuevoStock = prompt(`Actualizar stock:`, producto.stock);
+        if (nuevoStock === null || isNaN(parseInt(nuevoStock))) { 
+            alert('Actualización cancelada. El stock debe ser un número entero.'); 
+            return; 
+        }
+        const stockInt = parseInt(nuevoStock);
+        
+        const fechaActual = new Date().toISOString().slice(0, 10);
+        
+        await docRef.update({
+            nombre: nuevoNombre.trim().toUpperCase(),
+            lote: nuevoLote.trim(),
+            costoUnitario: costoFloat.toFixed(2),
+            precioVenta: precioFloat.toFixed(2),
+            stock: stockInt,
+            fechaActualizacion: fechaActual
+        });
+        
+        alert(`Producto "${nuevoNombre}" actualizado exitosamente.`);
+        cargarInventarioCompleto();
+        verificarStockBajo(); // Volver a verificar stock después de actualizar un producto
+
+    } catch (error) {
+        console.error("Error al actualizar producto: ", error);
+        alert("Hubo un error al actualizar el producto.");
+    }
+}
+
+async function cargarStockMecanico() {
+    const tbody = document.querySelector('#tabla-stock tbody');
+    tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
+
+    if (!db) {
+        tbody.innerHTML = '<tr><td colspan="6">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarStockMecanico)");
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('inventario').orderBy('nombre').get();
+        tbody.innerHTML = '';
+        
+        if(querySnapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="6">No hay productos.</td></tr>';
+            return;
+        }
+
+        querySnapshot.forEach(doc => {
+            const item = doc.data();
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.fechaActualizacion || 'N/A'}</td>
+                <td>${item.codigo}</td>
+                <td>${item.nombre}</td>
+                <td>${item.stock}</td>
+                <td>S/ ${parseFloat(item.costoUnitario).toFixed(2)}</td>
+                <td>S/ ${parseFloat(item.precioVenta).toFixed(2)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error("Error al cargar stock del mecánico: ", error);
+        tbody.innerHTML = '<tr><td colspan="6">Error al cargar datos.</td></tr>';
+    }
+}
+
+// Filtros locales
+function filtrarStock() {
+    const filtro = document.getElementById('buscar-stock').value.toLowerCase();
+    const filas = document.querySelectorAll('#tabla-stock-admin tbody tr');
+
+    filas.forEach(fila => {
+        const nombre = fila.cells[2].textContent.toLowerCase();
+        fila.style.display = nombre.includes(filtro) ? '' : 'none';
+    });
+}
+
+function filtrarRepuestosMecanicoPorNombre() {
+    const filtro = document.getElementById('buscar-repuesto-nombre').value.toLowerCase();
+    const filas = document.querySelectorAll('#tabla-stock tbody tr');
+
+    filas.forEach(fila => {
+        const nombre = fila.cells[2].textContent.toLowerCase();
+        fila.style.display = nombre.includes(filtro) ? '' : 'none';
+    });
+}
+
+async function solicitarRepuesto(event) {
+    event.preventDefault();
+    alert("La función de solicitar repuesto se ha registrado como una salida directa. Contacta al administrador para más detalles.");
+    document.getElementById('form-solicitar-repuesto').reset();
+}
+
+async function exportarExcel() {
+    alert("Generando reporte... Esto puede tardar unos segundos.");
+    
+    if (!db) {
+        alert("El sistema no está listo para exportar. Intente nuevamente.");
+        console.error("Firestore no está inicializado (exportarExcel)");
+        return;
+    }
+
+    const wb = XLSX.utils.book_new();
+
+    try {
+        // 1. Obtener datos de Inventario
+        const inventarioSnaptshot = await db.collection('inventario').get();
+        const dataInventario = inventarioSnaptshot.docs.map(doc => {
+            const item = doc.data();
+            return {
+                'Fecha Última Actualización': item.fechaActualizacion || 'N/A',
+                Código: item.codigo,
+                Nombre: item.nombre,
+                Lote: item.lote || '',
+                'Costo Unitario (S/.)': parseFloat(item.costoUnitario).toFixed(2),
+                'Precio de Venta (S/.)': parseFloat(item.precioVenta).toFixed(2),
+                Stock: item.stock
+            };
+        });
+        const wsInventario = XLSX.utils.json_to_sheet(dataInventario);
+        XLSX.utils.book_append_sheet(wb, wsInventario, 'Inventario (Stock)');
+
+        // 2. Obtener datos de Entradas
+        const entradasSnapshot = await db.collection('historialEntradas').get();
+        const dataEntradas = entradasSnapshot.docs.map(doc => doc.data());
+        const wsEntradas = XLSX.utils.json_to_sheet(dataEntradas);
+        XLSX.utils.book_append_sheet(wb, wsEntradas, 'Historial de Entradas');
+
+        // 3. Obtener datos de Salidas
+        const salidasSnapshot = await db.collection('repuestosSalida').get();
+        const dataSalidas = salidasSnapshot.docs.map(doc => doc.data());
+        const wsSalidas = XLSX.utils.json_to_sheet(dataSalidas);
+        XLSX.utils.book_append_sheet(wb, wsSalidas, 'Historial de Salidas');
+
+        // Descargar el archivo
+        XLSX.writeFile(wb, 'Reporte_Inventario_Movimientos.xlsx');
+        alert("Reporte de Excel generado exitosamente.");
+
+    } catch (error) {
+        console.error("Error al exportar a Excel: ", error);
+        alert("Hubo un error al generar el reporte de Excel.");
+    }
+}
+
+// --- FUNCIÓN PARA VERIFICAR STOCK BAJO (AJUSTADA PARA EVITAR DUPLICACIONES) ---
+async function verificarStockBajo() {
+    // Si ya estamos revisando el stock, salimos para evitar duplicaciones
+    if (isCheckingStock) {
+        console.log("Ya se está verificando el stock. Ignorando llamada duplicada.");
+        return;
+    }
+
+    isCheckingStock = true; // Establecer la bandera a true al iniciar la verificación
+    
+    const stockLowList = document.getElementById('stock-low-list');
+    const notificationContainer = document.getElementById('stock-notification-container');
+    
+    // 1. Limpiar completamente el contenido anterior
+    stockLowList.innerHTML = ''; 
+    notificationContainer.style.display = 'none'; // Ocultar por defecto
+
+    if (!db) {
+        console.error("Firestore no está inicializado (verificarStockBajo)");
+        isCheckingStock = false; // Liberar la bandera en caso de error
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('inventario').get();
+        let productosBajoStock = [];
+
+        querySnapshot.forEach(doc => {
+            const item = doc.data();
+            if (item.stock <= 5) { // Umbral de stock bajo
+                productosBajoStock.push({
+                    nombre: item.nombre,
+                    stock: item.stock
+                });
+            }
+        });
+
+        // 2. Si hay productos con stock bajo, agregarlos
+        if (productosBajoStock.length > 0) {
+            productosBajoStock.forEach(producto => {
+                const li = document.createElement('li');
+                li.textContent = `- ${producto.nombre} (Stock: ${producto.stock})`;
+                stockLowList.appendChild(li);
+            });
+            notificationContainer.style.display = 'block'; // Mostrar el contenedor de notificaciones
+        } else {
+            notificationContainer.style.display = 'none'; // Asegurarse de que esté oculto si no hay alertas
+        }
+
+    } catch (error) {
+        console.error("Error al verificar stock bajo:", error);
+    } finally {
+        isCheckingStock = false; // Siempre liberar la bandera al finalizar (éxito o error)
+    }
+}
+
+// --- INICIALIZACIÓN DEL SISTEMA ---
+document.addEventListener('DOMContentLoaded', async () => {
+    const firebaseInitialized = await initializeFirebase();
+    
+    if (!firebaseInitialized) {
+        alert("Hubo un problema al cargar el sistema. Por favor, intente de nuevo o contacte al soporte.");
+        return;
+    }
+    
+    // Configurar event listeners
+    document.querySelector('#login button').addEventListener('click', login);
+    document.getElementById('entrada-codigo').addEventListener('input', autocompletarNombreEntrada);
+    document.getElementById('salida-codigo').addEventListener('input', autocompletarNombreSalida);
+    document.getElementById('nuevo-codigo').addEventListener('input', autocompletarNombreAgregarProducto);
+    document.getElementById('form-entrada').addEventListener('submit', agregarEntrada);
+    document.getElementById('form-salida').addEventListener('submit', agregarSalida);
+    document.getElementById('form-agregar-producto').addEventListener('submit', agregarNuevoProducto);
+    document.getElementById('form-solicitar-repuesto').addEventListener('submit', solicitarRepuesto);
+
+    // La llamada a verificarStockBajo se realizará al iniciar sesión y al regresar al dashboard principal.
+    // No es necesario una llamada directa aquí en DOMContentLoaded.
+});

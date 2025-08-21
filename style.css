@@ -1,0 +1,635 @@
+/* style.css */
+
+/* Variables CSS para colores y sombras */
+:root {
+    --primary-blue-light: #00c6ff;
+    --primary-blue-dark: #0072ff;
+    --success-green-light: #28a745;
+    --success-green-dark: #218838;
+    --danger-red-light: #dc3545;
+    --danger-red-dark: #c82333;
+    --text-color-dark: #000000;
+    --text-color-light: #ffffff;
+    --background-gradient-start: #eef2f3;
+    --background-gradient-end: #0748a8;
+    --card-background: white;
+    --shadow-light: rgba(0,0,0,0.1);
+    --shadow-medium: rgba(0,0,0,0.2);
+    --shadow-strong: rgba(2, 2, 2, 0.8);
+    --light-grey: #f2f2f2;
+    --border-color: #ccc;
+    --table-border: #ddd;
+    --warning-yellow: #ffc107; /* Nuevo color para alertas */
+    --warning-yellow-dark: #e0a800; /* Tono más oscuro */
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(to bottom right, var(--background-gradient-start), var(--background-gradient-end));
+    min-height: 10vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    flex-direction: column;
+}
+
+.login-container, .dashboard {
+    width: 100%;
+    max-width: 900px; /* Ancho máximo para pantallas grandes */
+    background: var(--card-background);
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 12px 30px var(--shadow-medium);
+    margin-bottom: 30px;
+    position: relative;
+}
+
+.login-card {
+    text-align: center;
+    animation: slideIn 1s ease;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-50px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.avatar {
+    width: 65%;
+    height: auto;
+    border-radius: 9%;
+    margin-bottom: 10px;
+    object-fit: cover;
+    box-shadow: 0 5px 15px rgba(3, 3, 3, 0.2);
+}
+
+h2 {
+    color: var(--primary-blue-dark);
+    margin-bottom: 20px;
+    font-size: 2em;
+}
+
+h3 {
+    color: var(--primary-blue-dark);
+    margin-bottom: 15px;
+    font-size: 1.5em;
+}
+
+h4 {
+    color: var(--primary-blue-dark);
+    margin-bottom: 10px;
+    font-size: 1.2em;
+}
+
+
+input, select, button, textarea {
+    width: 100%;
+    padding: 14px;
+    margin: 12px 0;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    box-shadow: 0 4px 8px var(--shadow-light);
+    transition: all 0.3s;
+}
+
+/* Estilos de focus mejorados para accesibilidad */
+input:focus, select:focus, textarea:focus, button:focus {
+    outline: 2px solid var(--primary-blue-dark); /* Borde más visible */
+    outline-offset: 2px; /* Separación del borde */
+    box-shadow: 0 0 0 4px rgba(0, 114, 255, 0.2); /* Sutil efecto de resplandor */
+}
+
+textarea {
+    resize: vertical;
+    min-height: 80px;
+    padding: 14px;
+}
+
+
+button {
+    font-weight: bold;
+    background: linear-gradient(to right, var(--primary-blue-light), var(--primary-blue-dark));
+    color: var(--text-color-light);
+    cursor: pointer;
+    box-shadow: 0 6px 12px var(--shadow-medium);
+    transition: background 0.3s, transform 0.2s;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(to right, var(--primary-blue-dark), var(--primary-blue-light));
+}
+
+.dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+/* NUEVOS ESTILOS PARA LA NOTIFICACIÓN DE STOCK BAJO */
+.notification-container {
+    background-color: var(--warning-yellow);
+    color: var(--text-color-dark);
+    padding: 15px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.notification-container p {
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.notification-container ul {
+    list-style: none; /* Quitar viñetas predeterminadas */
+    padding-left: 0;
+}
+
+.notification-container ul li {
+    margin-bottom: 3px;
+    font-size: 0.95em;
+}
+
+/* Menú visual iconos admin: 3 filas x 2 columnas */
+.admin-icon-menu {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, auto);
+    gap: 25px 30px;
+    margin-bottom: 30px;
+    justify-items: center;
+    align-items: center;
+    width: 100%;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.icon-item {
+    cursor: pointer;
+    text-align: center;
+    user-select: none;
+    transition: transform 0.2s;
+}
+
+.icon-item:hover {
+    transform: scale(1.05);
+}
+
+.icon-item img {
+    width: 60px; /* tamaño mediano */
+    height: 60px;
+    object-fit: contain;
+    margin-bottom: 8px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.icon-item span {
+    display: block;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--primary-blue-dark);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    text-align: center;
+}
+
+.icon-item.empty {
+    pointer-events: none;
+    background: none;
+    box-shadow: none;
+}
+
+/* Iconos medianos centrados en cada apartado */
+.section-icon {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    display: block;
+    margin-bottom: 15px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Botón regresar abajo (en apartados) */
+.btn-regresar-bottom {
+    background: linear-gradient(to right, var(--primary-blue-light), var(--primary-blue-dark));
+    color: var(--text-color-light);
+    padding: 14px;
+    margin-top: 30px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    display: block;
+    box-shadow: 0 6px 12px var(--shadow-medium);
+    transition: background 0.3s, transform 0.2s;
+    text-align: center;
+}
+
+.btn-regresar-bottom:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(to right, var(--primary-blue-dark), var(--primary-blue-light));
+}
+
+
+/* Buscador en Stock */
+.admin-section input#buscar-stock {
+    width: 100%;
+    max-width: 300px;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    font-size: 16px;
+}
+
+.admin-section h3, .admin-section h4 {
+    margin-bottom: 15px;
+}
+
+/* Ajustes para los campos de formulario dentro de las secciones */
+.admin-section form input,
+.admin-section form textarea {
+    margin: 8px 0;
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    width: 100%;
+}
+
+.admin-section form button {
+    margin: 8px 0;
+    background-color: var(--primary-blue-light);
+    color: var(--text-color-light);
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    width: 100%;
+}
+
+.admin-section form button:hover {
+    background-color: var(--primary-blue-dark);
+}
+
+/* Estilo para el nuevo contenedor del sub-apartado de "Agregar Producto" */
+.sub-section-container {
+    background-color: var(--light-grey);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+
+/* TABLAS RESPONSIVAS */
+/* Contenedor para tablas con scroll horizontal en pantallas pequeñas */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+th, td {
+    padding: 10px;
+    border: 1px solid var(--table-border);
+    text-align: left;
+}
+
+/* Cabeceras de tabla en negrita y un poco más oscuras */
+th {
+    background-color: var(--light-grey);
+    font-weight: bold;
+}
+
+/* Estilos para los nuevos botones de Actualizar y Eliminar en la tabla */
+.action-buttons button {
+    width: auto;
+    padding: 8px 12px;
+    margin: 2px;
+    border-radius: 8px;
+    font-size: 14px;
+    box-shadow: none;
+}
+
+.action-buttons .btn-actualizar {
+    background: linear-gradient(to right, var(--success-green-light), var(--success-green-dark));
+}
+
+.action-buttons .btn-actualizar:hover {
+    background: linear-gradient(to right, var(--success-green-dark), var(--success-green-light));
+}
+
+.action-buttons .btn-eliminar {
+    background: linear-gradient(to right, var(--danger-red-light), var(--danger-red-dark));
+}
+
+.action-buttons .btn-eliminar:hover {
+    background: linear-gradient(to right, var(--danger-red-dark), var(--danger-red-light));
+}
+
+/* Botón Eliminar: rojo pastel */
+button.btn-eliminar,
+button[onclick^="eliminarSalida"] {
+    background: #ffb3b3 !important;
+    color: #a10000 !important;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 12px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-right: 4px;
+    transition: background 0.2s;
+}
+button.btn-eliminar:hover,
+button[onclick^="eliminarSalida"]:hover {
+    background: #ff6666 !important;
+}
+
+/* Botón Actualizar: verde suave */
+button.btn-actualizar,
+button[onclick^="actualizarSalida"] {
+    background: #b3ffcc !important;
+    color: #006622 !important;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 12px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-right: 4px;
+    transition: background 0.2s;
+}
+button.btn-actualizar:hover,
+button[onclick^="actualizarSalida"]:hover {
+    background: #66ff99 !important;
+}
+
+
+.credits {
+    margin-top: 10px;
+    font-size: 15px;
+    color: var(--text-color-dark);
+    line-height: 1.1;
+    background: var(--card-background);
+    color: #525050;
+    border-radius: 12px;
+    padding: 20px 16px;
+    margin-top: 30px;
+    box-shadow: 0 2px 6px var(--shadow-strong);
+    width: 90%;
+    max-width: 340px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.resaltado {
+    color: var(--text-color-dark); /* Mantiene el color negro para el texto del enlace */
+    font-weight: normal;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+    font-size: 1em;
+    display: inline;
+    text-decoration: none; /* Quita el subrayado predeterminado de los enlaces */
+    transition: color 0.2s ease-in-out; /* Suaviza el cambio de color al pasar el ratón */
+}
+
+.resaltado:hover {
+    color: var(--primary-blue-dark); /* Cambia de color al pasar el ratón */
+}
+
+/* --- Radio buttons personalizados para selección de rol --- */
+.role-radio-group {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin: 10px 0 0 0;
+}
+.role-radio {
+    position: relative;
+    padding-left: 32px;
+    cursor: pointer;
+    font-size: 1em;
+    user-select: none;
+    color: var(--primary-blue-dark);
+    font-weight: 600;
+}
+.role-radio input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+.custom-radio {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 20px;
+    width: 20px;
+    background-color: #fff;
+    border: 2.5px solid var(--primary-blue-dark);
+    border-radius: 50%;
+    transition: border 0.2s;
+}
+.role-radio input[type="radio"]:checked ~ .custom-radio {
+    background-color: #fff;
+    border: 3px solid var(--primary-blue-dark);
+}
+.custom-radio:after {
+    content: "";
+    position: absolute;
+    display: none;
+}
+/* Mostrar punto azul al seleccionar y perfectamente centrado */
+.role-radio input[type="radio"]:checked ~ .custom-radio:after {
+    display: block;
+}
+.role-radio .custom-radio:after {
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary-blue-dark);
+    position: absolute;
+    content: "";
+    transform: translate(-50%, -50%);
+}
+
+/* MEDIA QUERIES para responsividad */
+@media (max-width: 768px) {
+    /* Ajustes generales para tabletas y móviles */
+    .login-container, .dashboard {
+        padding: 15px;
+    }
+
+    .admin-icon-menu {
+        grid-template-columns: repeat(2, 1fr); /* Una columna para el menú de iconos en móviles */
+        gap: 20px;
+    }
+
+    .icon-item img {
+        width: 50px;
+        height: 50px;
+    }
+
+    .icon-item span {
+        font-size: 14px;
+    }
+
+    .section-icon {
+        width: 50px;
+        height: 50px;
+    }
+
+    .admin-section h3, .admin-section h4 {
+        font-size: 1.2em; /* Reducir tamaño de títulos de sección */
+    }
+
+    input, select, button, textarea {
+        padding: 12px;
+        font-size: 15px;
+    }
+
+    .action-buttons button {
+        padding: 6px 10px; /* Reducir padding de botones de acción en móvil */
+        font-size: 12px;
+    }
+
+    .notification-container {
+        padding: 10px 15px; /* Ajuste para móviles */
+        font-size: 0.9em;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Ajustes específicos para móviles muy pequeños */
+    body {
+        padding: 10px;
+    }
+
+    .login-container, .dashboard {
+        padding: 10px;
+        border-radius: 10px;
+    }
+
+    .login-card h2 {
+        font-size: 1.8em;
+    }
+
+    .avatar {
+        width: 50%;
+    }
+
+    .credits {
+        padding: 15px 10px;
+        font-size: 13px;
+    }
+
+    input, select, button, textarea {
+        padding: 10px;
+        font-size: 14px;
+        margin: 10px 0;
+    }
+}
+
+/* NUEVO ESTILO PARA LA NOTIFICACIÓN DE SOLICITUD */
+#solicitud-notification-container {
+    background: #ffcccc !important;
+    border: 2px solid #d32f2f !important;
+    color: #b71c1c !important;
+    margin-bottom: 16px;
+    border-radius: 12px;
+    padding: 16px;
+    font-weight: bold;
+}
+
+/* Alerta de stock bajo: amarillo pastel más transparente y borde más oscuro */
+#stock-notification-container,
+.notification-container {
+    background: rgba(255, 249, 196, 0.85) !important; /* amarillo pastel translúcido */
+    border: 2.5px solid #ffd900 !important;           /* borde amarillo oscuro */
+    color: #333 !important;
+    margin-bottom: 16px;
+    border-radius: 12px;
+    padding: 16px;
+    font-weight: bold;
+}
+
+/* Solicitud de repuesto: verde pastel */
+.solicitud-container {
+    background: rgba(200, 255, 200, 0.85); /* verde pastel translúcido */
+    border: 2.5px solid #2e7d32;
+    color: #1b5e20;
+    margin-bottom: 16px;
+    border-radius: 12px;
+    padding: 16px;
+    font-weight: bold;
+}
+
+.solicitud-container ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.solicitud-container li {
+    margin-bottom: 12px;
+    font-weight: normal;
+}
+
+/* Botón aceptar: verde pastel */
+.btn-aceptar {
+    background: #b3ffcc !important;
+    color: #006622 !important;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 12px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-right: 8px;
+    transition: background 0.2s;
+}
+.btn-aceptar:hover {
+    background: #66ff99 !important;
+}
+
+/* Botón rechazar: rojo pastel */
+.btn-rechazar {
+    background: #ffb3b3 !important;
+    color: #a10000 !important;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-rechazar:hover {
+    background: #ff6666 !important;
+}

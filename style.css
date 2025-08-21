@@ -287,7 +287,6 @@ button:hover {
     box-shadow: 0 4px 10px rgba(0,0,0,0.08);
 }
 
-
 /* TABLAS RESPONSIVAS */
 .table-responsive {
     overflow-x: auto;
@@ -407,6 +406,15 @@ button[onclick^="actualizarSalida"]:hover {
     color: var(--primary-blue-dark);
 }
 
+/* Estilos para el botón de Cerrar Sesión (reducido) */
+.btn-logout {
+    width: auto;
+    max-width: 150px;
+    padding: 10px 20px;
+    font-size: 14px;
+    box-shadow: none;
+}
+
 /* --- Estilos de los radio buttons personalizados (ajustados) --- */
 .role-options {
   display: flex;
@@ -440,6 +448,83 @@ button[onclick^="actualizarSalida"]:hover {
 
 .role-options input[type="radio"]:checked {
   border: 0.35em solid var(--primary-blue-dark);
+}
+
+/* Nuevos estilos para solicitudes */
+#solicitud-notification-container {
+    background: #ffffe0; /* Amarillo claro */
+    border: 2px solid #ffd700;
+    color: #4b4b00;
+}
+
+.solicitud-container {
+    background: rgba(200, 255, 200, 0.85);
+    border: 2.5px solid #2e7d32;
+    color: #1b5e20;
+    margin-bottom: 16px;
+    border-radius: 12px;
+    padding: 16px;
+    font-weight: bold;
+}
+
+.solicitud-container ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.solicitud-container li {
+    margin-bottom: 12px;
+    font-weight: normal;
+}
+
+.btn-aceptar {
+    background: linear-gradient(to right, #66bb6a, #43a047);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 12px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-right: 8px;
+    transition: background 0.2s;
+}
+.btn-aceptar:hover {
+    background: linear-gradient(to right, #43a047, #66bb6a);
+}
+
+.btn-rechazar {
+    background: linear-gradient(to right, #ef5350, #e53935);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-rechazar:hover {
+    background: linear-gradient(to right, #e53935, #ef5350);
+}
+
+.estado-pendiente {
+    color: #ff8c00;
+    font-weight: bold;
+}
+.estado-aceptada {
+    color: #2e7d32;
+    font-weight: bold;
+}
+.estado-rechazada {
+    color: #d32f2f;
+    font-weight: bold;
+}
+.estado-rechazada-no-existe {
+    color: #d32f2f;
+    font-weight: bold;
+}
+.estado-rechazada-stock-insuficiente {
+    color: #d32f2f;
+    font-weight: bold;
 }
 
 /* MEDIA QUERIES para responsividad */
@@ -525,79 +610,34 @@ button[onclick^="actualizarSalida"]:hover {
     }
 }
 
-/* Nuevos estilos para solicitudes */
-#solicitud-notification-container {
-    background: #ffffe0; /* Amarillo claro */
-    border: 2px solid #ffd700;
-    color: #4b4b00;
-}
-
-.solicitud-container {
-    background: rgba(200, 255, 200, 0.85);
-    border: 2.5px solid #2e7d32;
-    color: #1b5e20;
-    margin-bottom: 16px;
-    border-radius: 12px;
-    padding: 16px;
-    font-weight: bold;
-}
-
-.solicitud-container ul {
-    list-style: none;
-    padding-left: 0;
-}
-
-.solicitud-container li {
-    margin-bottom: 12px;
-    font-weight: normal;
-}
-
-.btn-aceptar {
-    background: linear-gradient(to right, #66bb6a, #43a047);
-    color: white;
+/* Estilos para los botones de la tabla de historial de salidas */
+.btn-actualizar-salida, .btn-eliminar-salida {
+    padding: 5px 10px;
     border: none;
-    border-radius: 5px;
-    padding: 4px 12px;
-    font-weight: bold;
+    border-radius: 4px;
     cursor: pointer;
-    margin-right: 8px;
-    transition: background 0.2s;
-}
-.btn-aceptar:hover {
-    background: linear-gradient(to right, #43a047, #66bb6a);
+    font-weight: bold;
+    margin-right: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s, background-color 0.2s;
 }
 
-.btn-rechazar {
-    background: linear-gradient(to right, #ef5350, #e53935);
-    color: white;
-    border: none;
-    border-radius: 5px;
-    padding: 4px 12px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-.btn-rechazar:hover {
-    background: linear-gradient(to right, #e53935, #ef5350);
+.btn-actualizar-salida {
+    background-color: #d1ffdb; /* Verde claro */
+    color: #006400; /* Verde oscuro */
 }
 
-.estado-pendiente {
-    color: #ff8c00;
-    font-weight: bold;
+.btn-actualizar-salida:hover {
+    transform: translateY(-1px);
+    background-color: #b0f5be;
 }
-.estado-aceptada {
-    color: #2e7d32;
-    font-weight: bold;
+
+.btn-eliminar-salida {
+    background-color: #ffc4c4; /* Rojo claro */
+    color: #8b0000; /* Rojo oscuro */
 }
-.estado-rechazada {
-    color: #d32f2f;
-    font-weight: bold;
-}
-.estado-rechazada-no-existe {
-    color: #d32f2f;
-    font-weight: bold;
-}
-.estado-rechazada-stock-insuficiente {
-    color: #d32f2f;
-    font-weight: bold;
+
+.btn-eliminar-salida:hover {
+    transform: translateY(-1px);
+    background-color: #ff9999;
 }

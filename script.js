@@ -602,10 +602,10 @@ async function cargarStockAdmin() {
 
 async function cargarRepuestosSalida() {
     const tbody = document.querySelector('#tabla-salida tbody');
-    tbody.innerHTML = '<tr><td colspan="7">Cargando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8">Cargando...</td></tr>';
     
     if (!db) {
-        tbody.innerHTML = '<tr><td colspan="7">Error: Firestore no está inicializado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8">Error: Firestore no está inicializado.</td></tr>';
         console.error("Firestore no está inicializado (cargarRepuestosSalida)");
         return;
     }
@@ -615,7 +615,7 @@ async function cargarRepuestosSalida() {
         tbody.innerHTML = '';
         
         if(querySnapshot.empty) {
-            tbody.innerHTML = '<tr><td colspan="7">No hay salidas registradas.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8">No hay salidas registradas.</td></tr>';
             return;
         }
 
@@ -630,12 +630,16 @@ async function cargarRepuestosSalida() {
                 <td>${item.cantidad}</td>
                 <td>${item.placa}</td>
                 <td>${item.kilometraje}</td>
+                <td>
+                    <button class="btn-actualizar-salida" onclick="actualizarSalida('${doc.id}')">Actualizar</button>
+                    <button class="btn-eliminar-salida" onclick="eliminarSalida('${doc.id}', '${item.repuesto}', ${item.cantidad})">Eliminar</button>
+                </td>
             `;
             tbody.appendChild(tr);
         });
     } catch (error) {
         console.error("Error al cargar repuestos de salida: ", error);
-        tbody.innerHTML = '<tr><td colspan="7">Error al cargar datos.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8">Error al cargar datos.</td></tr>';
     }
 }
 
@@ -973,6 +977,83 @@ async function verificarStockBajo() {
         console.error("Error al verificar stock bajo:", error);
     } finally {
         isCheckingStock = false;
+    }
+}
+
+// --- FUNCIONES NUEVAS PARA LA TABLA DE SALIDAS ---
+async function actualizarSalida(docId) {
+    if (!db) {
+        console.error("Firestore no está inicializado (actualizarSalida)");
+        alert("El sistema no está listo. Intente nuevamente.");
+        return;
+    }
+
+    try {
+        const docRef = db.collection('repuestosSalida').doc(docId);
+        const docSnap = await docRef.get();
+
+        if (!docSnap.exists) {
+            alert("El registro de salida que intentas actualizar ya no existe.");
+            return;
+        }
+        
+        const salida = docSnap.data();
+
+        const nuevaCantidad = prompt(`Actualizar cantidad (actual: ${salida.cantidad}):`, salida.cantidad);
+        if (nuevaCantidad === null || isNaN(parseInt(nuevaCantidad))) {
+            alert('Actualización cancelada o cantidad no válida.');
+            return;
+        }
+        const cantidadInt = parseInt(nuevaCantidad);
+
+        const nuevoCliente = prompt(`Actualizar nombre del cliente (actual: ${salida.cliente}):`, salida.cliente);
+        if (nuevoCliente === null || nuevoCliente.trim() === '') {
+            alert('Actualización cancelada.');
+            return;
+        }
+        
+        await docRef.update({
+            cantidad: cantidadInt,
+            cliente: nuevoCliente.trim()
+        });
+        
+        alert(`Salida de ${salida.repuesto} actualizada exitosamente.`);
+        cargarRepuestosSalida(); 
+
+    } catch (error) {
+        console.error("Error al actualizar la salida: ", error);
+        alert("Hubo un error al actualizar el registro de salida.");
+    }
+}
+
+async function eliminarSalida(docId, nombreRepuesto, cantidad) {
+    if (confirm(`¿Estás seguro de que quieres eliminar la salida de ${cantidad} unidades de "${nombreRepuesto}"?`)) {
+        if (!db) {
+            console.error("Firestore no está inicializado (eliminarSalida)");
+            alert("El sistema no está listo. Intente nuevamente.");
+            return;
+        }
+
+        try {
+            const inventarioQuery = await db.collection('inventario').where('nombre', '==', nombreRepuesto).limit(1).get();
+            if (!inventarioQuery.empty) {
+                const productoDoc = inventarioQuery.docs[0];
+                await db.collection('inventario').doc(productoDoc.id).update({
+                    stock: firebase.firestore.FieldValue.increment(cantidad)
+                });
+            }
+            
+            await db.collection('repuestosSalida').doc(docId).delete();
+            
+            alert('Salida eliminada exitosamente y stock restablecido.');
+            cargarRepuestosSalida();
+            cargarInventarioCompleto();
+            verificarStockBajo();
+
+        } catch (error) {
+            console.error("Error al eliminar la salida: ", error);
+            alert("Hubo un error al eliminar el registro de salida.");
+        }
     }
 }
 

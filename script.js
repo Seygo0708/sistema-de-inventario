@@ -12,6 +12,7 @@ const firebaseConfig = {
 
 let db;
 let isCheckingStock = false;
+let isCheckingSolicitudes = false;
 
 // Función para inicializar Firebase
 async function initializeFirebase() {
@@ -34,14 +35,13 @@ async function initializeFirebase() {
     }
 }
 
-// NUEVA FUNCIÓN: Cambiar avatar según el rol seleccionado
+// Función para cambiar avatar según el rol seleccionado
 function configurarCambioAvatar() {
   const roleInputs = document.querySelectorAll('input[name="role"]');
   const avatarImg = document.getElementById('avatar-img');
 
   roleInputs.forEach(input => {
     input.addEventListener('change', function() {
-      // Usamos el valor del input para determinar qué imagen mostrar
       if (this.value === "Usuario") {
         avatarImg.src = "mecanico.gif";
       } else if (this.value === "admin") {
@@ -50,7 +50,6 @@ function configurarCambioAvatar() {
     });
   });
 }
-
 
 // --- FUNCIONES DEL SISTEMA ---
 function login() {
@@ -106,14 +105,18 @@ function mostrarApartado(nombre) {
 
     const menuIconos = document.querySelector('.admin-icon-menu');
     const stockNotification = document.getElementById('stock-notification-container');
+    const solicitudNotification = document.getElementById('solicitud-notification-container');
 
     if (nombre === '') {
         menuIconos.style.display = 'grid';
         stockNotification.style.display = 'block';
+        solicitudNotification.style.display = 'block';
         verificarStockBajo();
+        verificarSolicitudesPendientes();
     } else {
         menuIconos.style.display = 'none';
         stockNotification.style.display = 'none';
+        solicitudNotification.style.display = 'none';
         const mostrar = document.getElementById('apartado-' + nombre);
         if (mostrar) mostrar.style.display = 'block';
 
@@ -132,6 +135,8 @@ function mostrarApartado(nombre) {
             document.getElementById('entrada-fecha').valueAsDate = new Date();
             cargarHistorialEntradas();
             document.getElementById('form-entrada').reset();
+        } else if (nombre === 'solicitudes') {
+            cargarSolicitudesAdmin();
         }
     }
 }
@@ -351,6 +356,208 @@ async function agregarSalida(event) {
     } catch (error) {
         console.error("Error al registrar salida: ", error);
         alert("Hubo un error al registrar la salida.");
+    }
+}
+
+// --- FUNCIÓN DE SOLICITUD DE MECÁNICO ---
+async function solicitarRepuesto(event) {
+    event.preventDefault();
+    
+    const nombre = document.getElementById('solicitar-nombre').value.trim();
+    const cantidad = parseInt(document.getElementById('solicitar-cantidad').value);
+    const usuarioMecanico = 'mecanico'; // Asumimos que el usuario actual es "mecanico"
+
+    if (!nombre || isNaN(cantidad) || cantidad <= 0) {
+        alert('Por favor, ingrese un nombre de repuesto y una cantidad válida.');
+        return;
+    }
+
+    if (!db) {
+        console.error("Firestore no está inicializado (solicitarRepuesto)");
+        alert("El sistema no está listo. Intente nuevamente.");
+        return;
+    }
+
+    try {
+        await db.collection('solicitudesRepuestos').add({
+            fecha: new Date().toISOString().slice(0, 10),
+            mecanico: usuarioMecanico,
+            repuesto: nombre,
+            cantidad: cantidad,
+            estado: 'Pendiente'
+        });
+
+        alert(`Su solicitud de ${cantidad} unidades de ${nombre} ha sido enviada al administrador.`);
+        document.getElementById('form-solicitar-repuesto').reset();
+        
+    } catch (error) {
+        console.error("Error al registrar la solicitud:", error);
+        alert("Hubo un error al enviar la solicitud.");
+    }
+}
+
+// --- FUNCIONES DEL ADMINISTRADOR PARA SOLICITUDES ---
+async function cargarSolicitudesAdmin() {
+    const tbody = document.querySelector('#tabla-solicitudes tbody');
+    tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
+    
+    if (!db) {
+        tbody.innerHTML = '<tr><td colspan="6">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarSolicitudesAdmin)");
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('solicitudesRepuestos').orderBy('fecha', 'desc').get();
+        tbody.innerHTML = '';
+
+        if (querySnapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="6">No hay solicitudes pendientes.</td></tr>';
+            return;
+        }
+
+        querySnapshot.forEach(doc => {
+            const solicitud = doc.data();
+            const docId = doc.id;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${solicitud.fecha}</td>
+                <td>${solicitud.mecanico}</td>
+                <td>${solicitud.repuesto}</td>
+                <td>${solicitud.cantidad}</td>
+                <td><span class="estado-${solicitud.estado.toLowerCase()}">${solicitud.estado}</span></td>
+                <td class="action-buttons">
+                    ${solicitud.estado === 'Pendiente' ? 
+                    `<button class="btn-aceptar" onclick="aceptarSolicitud('${docId}', '${solicitud.repuesto}', ${solicitud.cantidad})">Aceptar</button>
+                    <button class="btn-rechazar" onclick="rechazarSolicitud('${docId}')">Rechazar</button>`
+                    : ''}
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error("Error al cargar solicitudes:", error);
+        tbody.innerHTML = '<tr><td colspan="6">Error al cargar datos.</td></tr>';
+    }
+}
+
+async function aceptarSolicitud(solicitudId, nombreRepuesto, cantidad) {
+    if (!db) {
+        console.error("Firestore no está inicializado (aceptarSolicitud)");
+        alert("El sistema no está listo. Intente nuevamente.");
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('inventario').where('nombre', '==', nombreRepuesto).get();
+
+        if (querySnapshot.empty) {
+            alert(`El repuesto "${nombreRepuesto}" no se encuentra en el inventario. Por favor, añádalo primero.`);
+            await db.collection('solicitudesRepuestos').doc(solicitudId).update({ estado: 'Rechazada - No Existe' });
+            cargarSolicitudesAdmin();
+            return;
+        }
+
+        const productoDoc = querySnapshot.docs[0];
+        const productoData = productoDoc.data();
+
+        if (productoData.stock < cantidad) {
+            alert(`Stock insuficiente para "${nombreRepuesto}". Stock actual: ${productoData.stock}. La solicitud será rechazada.`);
+            await db.collection('solicitudesRepuestos').doc(solicitudId).update({ estado: 'Rechazada - Stock Insuficiente' });
+            cargarSolicitudesAdmin();
+            return;
+        }
+
+        // Si el stock es suficiente, actualizamos el inventario y la solicitud
+        await db.collection('inventario').doc(productoDoc.id).update({
+            stock: firebase.firestore.FieldValue.increment(-cantidad)
+        });
+
+        await db.collection('solicitudesRepuestos').doc(solicitudId).update({
+            estado: 'Aceptada'
+        });
+
+        alert(`Solicitud de ${nombreRepuesto} aceptada. Se ha descontado ${cantidad} unidad(es) del stock.`);
+        cargarSolicitudesAdmin();
+        verificarStockBajo();
+        verificarSolicitudesPendientes();
+        cargarInventarioCompleto();
+        
+    } catch (error) {
+        console.error("Error al aceptar solicitud:", error);
+        alert("Hubo un error al procesar la solicitud.");
+    }
+}
+
+async function rechazarSolicitud(solicitudId) {
+    if (!db) {
+        console.error("Firestore no está inicializado (rechazarSolicitud)");
+        alert("El sistema no está listo. Intente nuevamente.");
+        return;
+    }
+
+    try {
+        await db.collection('solicitudesRepuestos').doc(solicitudId).update({
+            estado: 'Rechazada'
+        });
+
+        alert('Solicitud rechazada.');
+        cargarSolicitudesAdmin();
+        verificarSolicitudesPendientes();
+        
+    } catch (error) {
+        console.error("Error al rechazar solicitud:", error);
+        alert("Hubo un error al rechazar la solicitud.");
+    }
+}
+
+async function verificarSolicitudesPendientes() {
+    if (isCheckingSolicitudes) {
+        console.log("Ya se están verificando las solicitudes. Ignorando llamada duplicada.");
+        return;
+    }
+    
+    isCheckingSolicitudes = true;
+    
+    const solicitudList = document.getElementById('solicitud-list');
+    const notificationContainer = document.getElementById('solicitud-notification-container');
+    
+    solicitudList.innerHTML = '';
+    notificationContainer.style.display = 'none';
+
+    if (!db) {
+        console.error("Firestore no está inicializado (verificarSolicitudesPendientes)");
+        isCheckingSolicitudes = false;
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('solicitudesRepuestos').where('estado', '==', 'Pendiente').get();
+        let solicitudesPendientes = [];
+
+        querySnapshot.forEach(doc => {
+            const solicitud = doc.data();
+            solicitudesPendientes.push({
+                repuesto: solicitud.repuesto,
+                cantidad: solicitud.cantidad
+            });
+        });
+
+        if (solicitudesPendientes.length > 0) {
+            solicitudesPendientes.forEach(solicitud => {
+                const li = document.createElement('li');
+                li.textContent = `- ${solicitud.repuesto} (Cantidad: ${solicitud.cantidad})`;
+                solicitudList.appendChild(li);
+            });
+            notificationContainer.style.display = 'block';
+        } else {
+            notificationContainer.style.display = 'none';
+        }
+
+    } catch (error) {
+        console.error("Error al verificar solicitudes pendientes:", error);
+    } finally {
+        isCheckingSolicitudes = false;
     }
 }
 
@@ -659,12 +866,6 @@ function filtrarRepuestosMecanicoPorNombre() {
     });
 }
 
-async function solicitarRepuesto(event) {
-    event.preventDefault();
-    alert("La función de solicitar repuesto se ha registrado como una salida directa. Contacta al administrador para más detalles.");
-    document.getElementById('form-solicitar-repuesto').reset();
-}
-
 async function exportarExcel() {
     alert("Generando reporte... Esto puede tardar unos segundos.");
     
@@ -705,6 +906,12 @@ async function exportarExcel() {
         const dataSalidas = salidasSnapshot.docs.map(doc => doc.data());
         const wsSalidas = XLSX.utils.json_to_sheet(dataSalidas);
         XLSX.utils.book_append_sheet(wb, wsSalidas, 'Historial de Salidas');
+        
+        // 4. Obtener datos de Solicitudes
+        const solicitudesSnapshot = await db.collection('solicitudesRepuestos').get();
+        const dataSolicitudes = solicitudesSnapshot.docs.map(doc => doc.data());
+        const wsSolicitudes = XLSX.utils.json_to_sheet(dataSolicitudes);
+        XLSX.utils.book_append_sheet(wb, wsSolicitudes, 'Historial de Solicitudes');
 
         // Descargar el archivo
         XLSX.writeFile(wb, 'Reporte_Inventario_Movimientos.xlsx');

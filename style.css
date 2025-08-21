@@ -32,7 +32,7 @@
 body {
     font-family: 'Segoe UI', sans-serif;
     background: linear-gradient(to bottom right, var(--background-gradient-start), var(--background-gradient-end));
-    min-height: 100vh; /* Ajuste para que ocupe toda la altura */
+    min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -88,7 +88,6 @@ h4 {
     font-size: 1.2em;
 }
 
-
 input, select, button, textarea {
     width: 100%;
     padding: 14px;
@@ -111,7 +110,6 @@ textarea {
     min-height: 80px;
     padding: 14px;
 }
-
 
 button {
     font-weight: bold;
@@ -242,7 +240,6 @@ button:hover {
     transform: translateY(-2px);
     background: linear-gradient(to right, var(--primary-blue-dark), var(--primary-blue-light));
 }
-
 
 .admin-section input#buscar-stock {
     width: 100%;
@@ -375,7 +372,6 @@ button[onclick^="actualizarSalida"]:hover {
     background: #66ff99 !important;
 }
 
-
 .credits {
     margin-top: 10px;
     font-size: 15px;
@@ -416,7 +412,7 @@ button[onclick^="actualizarSalida"]:hover {
   display: flex;
   justify-content: space-around;
   margin: 15px 0;
-  align-items: center; /* Alineación vertical */
+  align-items: center;
 }
 
 .role-options label {
@@ -425,30 +421,29 @@ button[onclick^="actualizarSalida"]:hover {
   cursor: pointer;
   font-weight: bold;
   gap: 8px;
-  font-size: 1em; /* Ajuste del tamaño de la fuente */
+  font-size: 1em;
 }
 
 .role-options input[type="radio"] {
   appearance: none;
   -webkit-appearance: none;
-  width: 1.2em; /* Reducir el tamaño del círculo exterior */
-  height: 1.2em;
+  width: 1em;
+  height: 1em;
   border: 2px solid #444;
   border-radius: 50%;
   outline: none;
   cursor: pointer;
   position: relative;
-  margin: 0; /* Quitar márgenes predeterminados */
+  margin: 0;
   transition: all 0.2s ease;
 }
 
 .role-options input[type="radio"]:checked {
-  border: 0.4em solid var(--primary-blue-dark); /* Reducir el tamaño del punto interior */
+  border: 0.35em solid var(--primary-blue-dark);
 }
 
 /* MEDIA QUERIES para responsividad */
 @media (max-width: 768px) {
-    /* Ajustes generales para tabletas y móviles */
     .login-container, .dashboard {
         padding: 15px;
     }
@@ -493,7 +488,6 @@ button[onclick^="actualizarSalida"]:hover {
 }
 
 @media (max-width: 480px) {
-    /* Ajustes específicos para móviles muy pequeños */
     body {
         padding: 10px;
     }
@@ -531,30 +525,13 @@ button[onclick^="actualizarSalida"]:hover {
     }
 }
 
-/* NUEVO ESTILO PARA LA NOTIFICACIÓN DE SOLICITUD */
+/* Nuevos estilos para solicitudes */
 #solicitud-notification-container {
-    background: #ffcccc !important;
-    border: 2px solid #d32f2f !important;
-    color: #b71c1c !important;
-    margin-bottom: 16px;
-    border-radius: 12px;
-    padding: 16px;
-    font-weight: bold;
+    background: #ffffe0; /* Amarillo claro */
+    border: 2px solid #ffd700;
+    color: #4b4b00;
 }
 
-/* Alerta de stock bajo: amarillo pastel más transparente y borde más oscuro */
-#stock-notification-container,
-.notification-container {
-    background: rgba(255, 249, 196, 0.85) !important;
-    border: 2.5px solid #ffd900 !important;
-    color: #333 !important;
-    margin-bottom: 16px;
-    border-radius: 12px;
-    padding: 16px;
-    font-weight: bold;
-}
-
-/* Solicitud de repuesto: verde pastel */
 .solicitud-container {
     background: rgba(200, 255, 200, 0.85);
     border: 2.5px solid #2e7d32;
@@ -575,10 +552,9 @@ button[onclick^="actualizarSalida"]:hover {
     font-weight: normal;
 }
 
-/* Botón aceptar: verde pastel */
 .btn-aceptar {
-    background: #b3ffcc !important;
-    color: #006622 !important;
+    background: linear-gradient(to right, #66bb6a, #43a047);
+    color: white;
     border: none;
     border-radius: 5px;
     padding: 4px 12px;
@@ -588,13 +564,12 @@ button[onclick^="actualizarSalida"]:hover {
     transition: background 0.2s;
 }
 .btn-aceptar:hover {
-    background: #66ff99 !important;
+    background: linear-gradient(to right, #43a047, #66bb6a);
 }
 
-/* Botón rechazar: rojo pastel */
 .btn-rechazar {
-    background: #ffb3b3 !important;
-    color: #a10000 !important;
+    background: linear-gradient(to right, #ef5350, #e53935);
+    color: white;
     border: none;
     border-radius: 5px;
     padding: 4px 12px;
@@ -603,35 +578,26 @@ button[onclick^="actualizarSalida"]:hover {
     transition: background 0.2s;
 }
 .btn-rechazar:hover {
-    background: #ff6666 !important;
+    background: linear-gradient(to right, #e53935, #ef5350);
 }
 
-.role-options {
-  display: flex;
-  justify-content: space-around;
-  margin: 15px 0;
+.estado-pendiente {
+    color: #ff8c00;
+    font-weight: bold;
 }
-
-.role-options label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  font-weight: bold;
-  gap: 8px;
+.estado-aceptada {
+    color: #2e7d32;
+    font-weight: bold;
 }
-
-.role-options input[type="radio"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  border: 2px solid #444;
-  border-radius: 50%;
-  outline: none;
-  cursor: pointer;
-  position: relative;
+.estado-rechazada {
+    color: #d32f2f;
+    font-weight: bold;
 }
-
-.role-options input[type="radio"]:checked {
-  border: 6px solid var(--primary-color, #007bff);
+.estado-rechazada-no-existe {
+    color: #d32f2f;
+    font-weight: bold;
+}
+.estado-rechazada-stock-insuficiente {
+    color: #d32f2f;
+    font-weight: bold;
 }

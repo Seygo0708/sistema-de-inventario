@@ -39,7 +39,7 @@ async function initializeFirebase() {
 function login() {
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
-    const role = document.getElementById('role').value;
+    const role = document.querySelector('input[name="role"]:checked').value;
 
     if (username === '' || password === '') {
         alert('Por favor complete todos los campos.');

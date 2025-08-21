@@ -14,10 +14,16 @@
             <h2>INICIAR SESIÓN</h2>
             <input type="text" id="username" placeholder="Usuario" />
             <input type="password" id="password" placeholder="Contraseña" />
-            <select id="role">
-                <option value="Usuario">Mecánico</option>
-                <option value="admin">Administrador</option>
-            </select>
+            <div class="role-options">
+            <label>
+                <input type="radio" name="role" value="Usuario" required />
+                <span>👨🏻‍🔧 Mecánico</span>
+            </label>
+            <label>
+                <input type="radio" name="role" value="admin" required />
+                <span>👩🏻‍💼 Administrador</span>
+            </label>
+        </div>
             <button onclick="login()">Ingresar</button>
 
             <div class="credits">

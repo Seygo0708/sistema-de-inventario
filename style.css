@@ -633,3 +633,34 @@ button[onclick^="actualizarSalida"]:hover {
 .btn-rechazar:hover {
     background: #ff6666 !important;
 }
+
+.role-options {
+  display: flex;
+  justify-content: space-around;
+  margin: 15px 0;
+}
+
+.role-options label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: bold;
+  gap: 8px;
+}
+
+.role-options input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #444;
+  border-radius: 50%;
+  outline: none;
+  cursor: pointer;
+  position: relative;
+}
+
+.role-options input[type="radio"]:checked {
+  border: 6px solid var(--primary-color, #007bff);
+}
+

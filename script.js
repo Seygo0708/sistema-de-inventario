@@ -11,7 +11,7 @@ const firebaseConfig = {
 };
 
 let db;
-let isCheckingStock = false; // <<< NUEVA BANDERA GLOBAL
+let isCheckingStock = false;
 
 // Función para inicializar Firebase
 async function initializeFirebase() {
@@ -34,28 +34,30 @@ async function initializeFirebase() {
     }
 }
 
-// --- FUNCIONES DEL SISTEMA ---
+// NUEVA FUNCIÓN: Cambiar avatar según el rol seleccionado
+function configurarCambioAvatar() {
+  const roleInputs = document.querySelectorAll('input[name="role"]');
+  const avatarImg = document.getElementById('avatar-img');
 
+  roleInputs.forEach(input => {
+    input.addEventListener('change', function() {
+      // Usamos el valor del input para determinar qué imagen mostrar
+      if (this.value === "Usuario") {
+        avatarImg.src = "mecanico.gif";
+      } else if (this.value === "admin") {
+        avatarImg.src = "admin.gif";
+      }
+    });
+  });
+}
+
+
+// --- FUNCIONES DEL SISTEMA ---
 function login() {
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
     const role = document.querySelector('input[name="role"]:checked').value;
 
-function configurarCambioAvatar(){
-    const roleInputs = document.querySelectorAll('input[name="role"]');
-    const avatarImg = document.getElementById('avatar-img');
-
-roleInputs.forEach(input => {
-  input.addEventListener('change', function() {
-    if (this.value === "Usuario") {
-      avatarImg.src = "mecanico.gif";  
-    } else if (this.value === "admin") {
-      avatarImg.src = "admin.gif"; 
-    }
-  });
-});
-
-}
     if (username === '' || password === '') {
         alert('Por favor complete todos los campos.');
         return;
@@ -74,7 +76,7 @@ function mostrarDashboard(role) {
 
     if (role === 'admin') {
         document.getElementById('dashboard-admin').style.display = 'block';
-        mostrarApartado(''); // Muestra el menú principal del administrador
+        mostrarApartado('');
     } else {
         document.getElementById('dashboard-mecanico').style.display = 'block';
         cargarStockMecanico();
@@ -88,7 +90,14 @@ function logout() {
 
     document.getElementById('username').value = '';
     document.getElementById('password').value = '';
-    document.getElementById('role').value = 'Usuario';
+    
+    // Al hacer logout, reseteamos a la imagen por defecto
+    document.getElementById('avatar-img').src = "avatar.png";
+    // Deseleccionar los radios para que al recargar la página no estén marcados
+    const radioMecanico = document.querySelector('input[name="role"][value="Usuario"]');
+    const radioAdmin = document.querySelector('input[name="role"][value="admin"]');
+    if (radioMecanico) radioMecanico.checked = false;
+    if (radioAdmin) radioAdmin.checked = false;
 }
 
 function mostrarApartado(nombre) {
@@ -100,11 +109,11 @@ function mostrarApartado(nombre) {
 
     if (nombre === '') {
         menuIconos.style.display = 'grid';
-        stockNotification.style.display = 'block'; // Mostrar notificación en el menú principal
-        verificarStockBajo(); // <-- Llamada principal aquí para el dashboard
+        stockNotification.style.display = 'block';
+        verificarStockBajo();
     } else {
         menuIconos.style.display = 'none';
-        stockNotification.style.display = 'none'; // Ocultar notificación en otras secciones
+        stockNotification.style.display = 'none';
         const mostrar = document.getElementById('apartado-' + nombre);
         if (mostrar) mostrar.style.display = 'block';
 
@@ -128,7 +137,6 @@ function mostrarApartado(nombre) {
 }
 
 // --- FUNCIONES DE AUTOCOMPLETAR ---
-
 async function autocompletarNombreGenerico(codigoInputId, nombreInputId) {
     const codigoInput = document.getElementById(codigoInputId);
     const nombreInput = document.getElementById(nombreInputId);
@@ -172,7 +180,6 @@ function autocompletarNombreAgregarProducto() {
 }
 
 // --- FUNCIONES CRUD ---
-
 async function agregarNuevoProducto(event) {
     event.preventDefault();
 
@@ -222,7 +229,7 @@ async function agregarNuevoProducto(event) {
         document.getElementById('form-agregar-producto').reset();
         document.getElementById('nuevo-producto-fecha').valueAsDate = new Date();
         cargarInventarioCompleto();
-        verificarStockBajo(); // Volver a verificar stock después de agregar un producto
+        verificarStockBajo();
     } catch (error) {
         console.error("Error al agregar producto: ", error);
         alert("Hubo un error al guardar el producto.");
@@ -274,7 +281,7 @@ async function agregarEntrada(event) {
         document.getElementById('entrada-fecha').valueAsDate = new Date();
         cargarInventarioCompleto();
         cargarHistorialEntradas();
-        verificarStockBajo(); // Volver a verificar stock después de una entrada
+        verificarStockBajo();
         
     } catch(error) {
         console.error("Error al registrar entrada: ", error);
@@ -339,7 +346,7 @@ async function agregarSalida(event) {
         document.getElementById('form-salida').reset();
         cargarRepuestosSalida();
         cargarInventarioCompleto();
-        verificarStockBajo(); // Volver a verificar stock después de una salida
+        verificarStockBajo();
         
     } catch (error) {
         console.error("Error al registrar salida: ", error);
@@ -348,7 +355,6 @@ async function agregarSalida(event) {
 }
 
 // --- FUNCIONES DE CARGA DE TABLAS ---
-
 async function cargarStockAdmin() {
     const tbody = document.querySelector('#tabla-stock-admin tbody');
     tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
@@ -516,7 +522,7 @@ async function eliminarProducto(docId, nombre) {
             await db.collection('inventario').doc(docId).delete();
             alert('Producto eliminado exitosamente.');
             cargarInventarioCompleto();
-            verificarStockBajo(); // Volver a verificar stock después de eliminar un producto
+            verificarStockBajo();
         } catch (error) {
             console.error("Error al eliminar producto: ", error);
             alert("Hubo un error al eliminar el producto.");
@@ -587,8 +593,7 @@ async function actualizarProducto(docId) {
         
         alert(`Producto "${nuevoNombre}" actualizado exitosamente.`);
         cargarInventarioCompleto();
-        verificarStockBajo(); // Volver a verificar stock después de actualizar un producto
-
+        verificarStockBajo();
     } catch (error) {
         console.error("Error al actualizar producto: ", error);
         alert("Hubo un error al actualizar el producto.");
@@ -713,24 +718,22 @@ async function exportarExcel() {
 
 // --- FUNCIÓN PARA VERIFICAR STOCK BAJO (AJUSTADA PARA EVITAR DUPLICACIONES) ---
 async function verificarStockBajo() {
-    // Si ya estamos revisando el stock, salimos para evitar duplicaciones
     if (isCheckingStock) {
         console.log("Ya se está verificando el stock. Ignorando llamada duplicada.");
         return;
     }
 
-    isCheckingStock = true; // Establecer la bandera a true al iniciar la verificación
+    isCheckingStock = true;
     
     const stockLowList = document.getElementById('stock-low-list');
     const notificationContainer = document.getElementById('stock-notification-container');
     
-    // 1. Limpiar completamente el contenido anterior
     stockLowList.innerHTML = ''; 
-    notificationContainer.style.display = 'none'; // Ocultar por defecto
+    notificationContainer.style.display = 'none';
 
     if (!db) {
         console.error("Firestore no está inicializado (verificarStockBajo)");
-        isCheckingStock = false; // Liberar la bandera en caso de error
+        isCheckingStock = false;
         return;
     }
 
@@ -740,7 +743,7 @@ async function verificarStockBajo() {
 
         querySnapshot.forEach(doc => {
             const item = doc.data();
-            if (item.stock <= 5) { // Umbral de stock bajo
+            if (item.stock <= 5) {
                 productosBajoStock.push({
                     nombre: item.nombre,
                     stock: item.stock
@@ -748,22 +751,21 @@ async function verificarStockBajo() {
             }
         });
 
-        // 2. Si hay productos con stock bajo, agregarlos
         if (productosBajoStock.length > 0) {
             productosBajoStock.forEach(producto => {
                 const li = document.createElement('li');
                 li.textContent = `- ${producto.nombre} (Stock: ${producto.stock})`;
                 stockLowList.appendChild(li);
             });
-            notificationContainer.style.display = 'block'; // Mostrar el contenedor de notificaciones
+            notificationContainer.style.display = 'block';
         } else {
-            notificationContainer.style.display = 'none'; // Asegurarse de que esté oculto si no hay alertas
+            notificationContainer.style.display = 'none';
         }
 
     } catch (error) {
         console.error("Error al verificar stock bajo:", error);
     } finally {
-        isCheckingStock = false; // Siempre liberar la bandera al finalizar (éxito o error)
+        isCheckingStock = false;
     }
 }
 
@@ -778,7 +780,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Configurar event listeners
     document.querySelector('#login button').addEventListener('click', login);
-    document.querySelector('#login button').addEventListener('click', login);configurarCambioAvatar();
     document.getElementById('entrada-codigo').addEventListener('input', autocompletarNombreEntrada);
     document.getElementById('salida-codigo').addEventListener('input', autocompletarNombreSalida);
     document.getElementById('nuevo-codigo').addEventListener('input', autocompletarNombreAgregarProducto);
@@ -786,7 +787,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('form-salida').addEventListener('submit', agregarSalida);
     document.getElementById('form-agregar-producto').addEventListener('submit', agregarNuevoProducto);
     document.getElementById('form-solicitar-repuesto').addEventListener('submit', solicitarRepuesto);
-
-    // La llamada a verificarStockBajo se realizará al iniciar sesión y al regresar al dashboard principal.
-    // No es necesario una llamada directa aquí en DOMContentLoaded.
+    
+    // Configurar el cambio de avatar inmediatamente
+    configurarCambioAvatar();
 });

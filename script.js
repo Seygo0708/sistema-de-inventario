@@ -41,6 +41,21 @@ function login() {
     const password = document.getElementById('password').value.trim();
     const role = document.querySelector('input[name="role"]:checked').value;
 
+function configurarCambioAvatar(){
+    const roleInputs = document.querySelectorAll('input[name="role"]');
+    const avatarImg = document.getElementById('avatar-img');
+
+roleInputs.forEach(input => {
+  input.addEventListener('change', function() {
+    if (this.value === "Usuario") {
+      avatarImg.src = "mecanico.gif";  
+    } else if (this.value === "admin") {
+      avatarImg.src = "admin.gif"; 
+    }
+  });
+});
+
+}
     if (username === '' || password === '') {
         alert('Por favor complete todos los campos.');
         return;
@@ -763,6 +778,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Configurar event listeners
     document.querySelector('#login button').addEventListener('click', login);
+    document.querySelector('#login button').addEventListener('click', login);configurarCambioAvatar();
     document.getElementById('entrada-codigo').addEventListener('input', autocompletarNombreEntrada);
     document.getElementById('salida-codigo').addEventListener('input', autocompletarNombreSalida);
     document.getElementById('nuevo-codigo').addEventListener('input', autocompletarNombreAgregarProducto);

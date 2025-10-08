@@ -8,33 +8,35 @@
 </head>
 <body>
 
+    <!-- LOGIN -->
     <div id="login" class="login-container">
         <div class="login-card">
-            <img src="avatar.png" alt="Logo" class="avatar"  id="avatar-img"/>
+            <img src="avatar.png" alt="Logo" class="avatar" id="avatar-img" />
             <h2>INICIAR SESIÓN</h2>
             <input type="text" id="username" placeholder="Usuario" />
             <input type="password" id="password" placeholder="Contraseña" />
             <div class="role-options">
-            <label>
-                <input type="radio" name="role" value="Usuario" required />
-                <span>👨🏻‍🔧 Mecánico</span>
-            </label>
-            <label>
-                <input type="radio" name="role" value="admin" required />
-                <span>👩🏻‍💼 Administrador</span>
-            </label>
-        </div>
+                <label>
+                    <input type="radio" name="role" value="Usuario" required />
+                    <span>👨🏻‍🔧 Mecánico</span>
+                </label>
+                <label>
+                    <input type="radio" name="role" value="admin" required />
+                    <span>👩🏻‍💼 Administrador</span>
+                </label>
+            </div>
             <button onclick="login()">Ingresar</button>
 
             <div class="credits">
                 <h5>Creado por estudiante:</h5>
                 <h5><a href="mailto:alvarezsosarocio@gmail.com?subject=SOPORTE&body=NOMBRE%20Y%20APELLIDOS%3A%0ACORREO%3A%0ANUMERO%20DE%20CELULAR%3A" class="resaltado">Alexandra Rocio</a></h5>
                 <h5>Respaldado por estudiante Ing. de Sistemas:</h5>
-                <h5><a href="mailto:segyrocastro@gmail.com?subject=SOPORTE&body=NOMBRE%20Y%20APELLIDOS%3A%0ACORREO%3A%0ANUMERO%20DE%20CELULAR%3A" class="resaltado">Seygo Castro</a></h5>
+                <h5><a href="mailto:cseygomax@gmail.com?subject=SOPORTE&body=NOMBRE%20Y%20APELLIDOS%3A%0ACORREO%3A%0ANUMERO%20DE%20CELULAR%3A" class="resaltado">Seygo Castro</a></h5>
             </div>
         </div>
     </div>
 
+    <!-- PANEL ADMINISTRADOR -->
     <div id="dashboard-admin" class="dashboard" style="display: none;">
         <div class="dashboard-header">
             <h3>Panel de Administrador</h3>
@@ -45,7 +47,7 @@
             <p>Productos con stock bajo:</p>
             <ul id="stock-low-list"></ul>
         </div>
-        
+
         <div id="solicitud-notification-container" class="notification-container" style="display: none;">
             <p>Tienes nuevas solicitudes de repuestos:</p>
             <ul id="solicitud-list"></ul>
@@ -78,6 +80,7 @@
             </div>
         </div>
 
+        <!-- SECCIONES DE ADMIN -->
         <div id="apartado-entrada" class="admin-section" style="display: none;">
             <div class="sub-section-container">
                 <h4>Entrada de Productos</h4>
@@ -227,14 +230,29 @@
             <button class="btn-regresar-bottom" onclick="mostrarApartado('')">Regresar al Menú</button>
         </div>
 
+        <!-- 🧠 MÓDULO DE INTELIGENCIA ARTIFICIAL -->
+        <div id="panel-ia" style="margin-top: 40px; padding: 20px; background-color: #f8f9ff; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+            <h3 style="color:#004aad;">Asistente Inteligente del Almacén 🤖</h3>
+            <p>Analiza tus productos y genera recomendaciones automáticas basadas en su movimiento y stock.</p>
+
+            <!-- Gráfico -->
+            <canvas id="grafico-uso" style="max-width: 600px; margin: 20px auto;"></canvas>
+
+            <!-- Sugerencias -->
+            <div id="recomendaciones" style="margin-top: 20px; background:#eaf4ff; border-left: 5px solid #007bff; padding: 15px; border-radius: 8px;">
+                <b>Recomendaciones automáticas:</b>
+                <ul id="lista-recomendaciones" style="margin-top:10px;"></ul>
+            </div>
+        </div>
     </div>
 
+    <!-- PANEL MECÁNICO -->
     <div id="dashboard-mecanico" class="dashboard" style="display: none;">
         <div class="dashboard-header">
             <h3>Panel de Mecánico</h3>
             <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
         </div>
-        
+
         <div class="sub-section-container">
             <h4>Inventario por Stock</h4>
             <input type="text" id="buscar-repuesto-nombre" placeholder="Buscar repuesto por nombre..." oninput="filtrarRepuestosMecanicoPorNombre()" />
@@ -265,9 +283,60 @@
         </div>
     </div>
 
+    <!-- SCRIPTS -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="script.js"></script>
-    </body>
-    </html>
+
+    <script>
+    // ===========================
+    // 🧠 ASISTENTE INTELIGENTE
+    // ===========================
+    const productos = [
+        { nombre: "PASTILLAS DE FRENO TOYOTA HILUX 1GD", stock: 2, salida: 12 },
+        { nombre: "ARRANCADOR", stock: 1, salida: 8 },
+        { nombre: "MUELLE TERCERA", stock: 5, salida: 23 },
+        { nombre: "BOMBÍN DE FRENO", stock: 6, salida: 5 },
+        { nombre: "FILTRO DE CABINA", stock: 4, salida: 15 }
+    ];
+
+    const ctx = document.getElementById('grafico-uso');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: productos.map(p => p.nombre),
+            datasets: [{
+                label: 'Salidas recientes',
+                data: productos.map(p => p.salida),
+                borderWidth: 1,
+                backgroundColor: 'rgba(0, 119, 255, 0.5)',
+                borderColor: '#007bff'
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: 'Cantidad de salidas' } },
+                x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 0 } }
+            }
+        }
+    });
+
+    const lista = document.getElementById('lista-recomendaciones');
+    productos.forEach(p => {
+        const li = document.createElement('li');
+        if (p.stock < 5 && p.salida > 10) {
+            li.textContent = `⚠️ ${p.nombre} tiene alta demanda y bajo stock. Se recomienda reabastecer pronto.`;
+        } else if (p.stock > 10 && p.salida < 3) {
+            li.textContent = `ℹ️ ${p.nombre} tiene exceso de stock y baja rotación. Considera reducir existencias.`;
+        } else {
+            li.textContent = `✅ ${p.nombre} mantiene un movimiento estable.`;
+        }
+        lista.appendChild(li);
+    });
+    </script>
+
+</body>
+</html>

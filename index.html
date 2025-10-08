@@ -80,40 +80,14 @@
         <img src="stock-icon.png" alt="Stock" class="section-icon" />
         <span>Stock</span>
       </div>
-      <div class="icon-item" onclick="mostrarApartado('ia')">
-        <img src="robot-icon.png" alt="Asistente IA" class="section-icon" />
-        <span>Asistente IA</span>
-      </div>
     </div>
 
-    <!-- SECCIÓN DE ASISTENTE INTELIGENTE -->
-    <div id="apartado-ia" class="admin-section" style="display:none; text-align:center;">
-      <h3 style="color:#004aad;">Asistente Inteligente del Almacén 🤖</h3>
-      <p>Analiza tu inventario, genera recomendaciones y consulta al asistente virtual.</p>
-
-      <!-- Gráfico -->
-      <canvas id="grafico-uso" style="max-width:600px; margin:20px auto;"></canvas>
-
-      <!-- Recomendaciones -->
-      <div id="recomendaciones" style="margin-top:20px; display:inline-block; text-align:left; background:#eaf4ff; border-left:5px solid #007bff; padding:15px; border-radius:8px;">
-        <b>Recomendaciones automáticas:</b>
-        <ul id="lista-recomendaciones" style="margin-top:10px;"></ul>
-      </div>
-
-      <!-- Chatbot -->
-      <div id="chatbot" style="margin-top:30px; background:#fff; border-radius:12px; padding:20px; box-shadow:0 2px 6px rgba(0,0,0,0.1); display:inline-block; text-align:left;">
-        <h3 style="color:#004aad;">Asistente Virtual 💬</h3>
-        <div id="chatbox" style="height:200px; overflow-y:auto; background:#f4f7ff; padding:10px; border-radius:8px; margin-bottom:10px; width:400px;">
-          <div><b>🤖 IA:</b> ¡Hola, Seygo! ¿Qué deseas analizar hoy?</div>
-        </div>
-        <input id="chat-input" type="text" placeholder="Ejemplo: ¿Qué productos tienen bajo stock?" 
-          style="width:75%; padding:8px; border-radius:6px; border:1px solid #ccc;" />
-        <button onclick="enviarPregunta()" 
-          style="padding:8px 15px; background:#007bff; color:white; border:none; border-radius:6px;">Enviar</button>
-      </div>
-
-      <button class="btn-regresar-bottom" onclick="mostrarApartado('')">Regresar al Menú</button>
-    </div>
+    <!-- SECCIONES ADMIN -->
+    <div id="apartado-entrada" class="admin-section" style="display:none;"></div>
+    <div id="apartado-salida" class="admin-section" style="display:none;"></div>
+    <div id="apartado-inventario" class="admin-section" style="display:none;"></div>
+    <div id="apartado-solicitudes" class="admin-section" style="display:none;"></div>
+    <div id="apartado-stock" class="admin-section" style="display:none;"></div>
   </div>
 
   <!-- PANEL MECÁNICO -->
@@ -123,7 +97,6 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

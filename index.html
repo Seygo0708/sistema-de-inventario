@@ -1,136 +1,273 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sistema de Inventario</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sistema de Inventario</title>
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <!-- LOGIN -->
-  <div id="login" class="login-container">
-    <div class="login-card">
-      <img src="avatar.png" alt="Logo" class="avatar" id="avatar-img" />
-      <h2>INICIAR SESIÓN</h2>
-      <input type="text" id="username" placeholder="Usuario" />
-      <input type="password" id="password" placeholder="Contraseña" />
-      <div class="role-options">
-        <label>
-          <input type="radio" name="role" value="Usuario" required />
-          <span>👨🏻‍🔧 Mecánico</span>
-        </label>
-        <label>
-          <input type="radio" name="role" value="admin" required />
-          <span>👩🏻‍💼 Administrador</span>
-        </label>
-      </div>
-      <button onclick="login()">Ingresar</button>
+    <div id="login" class="login-container">
+        <div class="login-card">
+            <img src="avatar.png" alt="Logo" class="avatar"  id="avatar-img"/>
+            <h2>INICIAR SESIÓN</h2>
+            <input type="text" id="username" placeholder="Usuario" />
+            <input type="password" id="password" placeholder="Contraseña" />
+            <div class="role-options">
+            <label>
+                <input type="radio" name="role" value="Usuario" required />
+                <span>👨🏻‍🔧 Mecánico</span>
+            </label>
+            <label>
+                <input type="radio" name="role" value="admin" required />
+                <span>👩🏻‍💼 Administrador</span>
+            </label>
+        </div>
+            <button onclick="login()">Ingresar</button>
 
-      <div class="credits">
-        <h5>Creado por estudiante:</h5>
-        <h5><a href="mailto:alvarezsosarocio@gmail.com" class="resaltado">Alexandra Rocio</a></h5>
-        <h5>Respaldado por estudiante Ing. de Sistemas:</h5>
-        <h5><a href="mailto:cseygomax@gmail.com" class="resaltado">Seygo Castro</a></h5>
-      </div>
-    </div>
-  </div>
-
-  <!-- PANEL ADMINISTRADOR -->
-  <div id="dashboard-admin" class="dashboard" style="display: none;">
-    <div class="dashboard-header">
-      <h3>Panel de Administrador</h3>
-      <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
+            <div class="credits">
+                <h5>Creado por estudiante:</h5>
+                <h5><a href="mailto:alvarezsosarocio@gmail.com?subject=SOPORTE&body=NOMBRE%20Y%20APELLIDOS%3A%0ACORREO%3A%0ANUMERO%20DE%20CELULAR%3A" class="resaltado">Alexandra Rocio</a></h5>
+                <h5>Respaldado por estudiante Ing. de Sistemas:</h5>
+                <h5><a href="mailto:cseygomax@gmail.com?subject=SOPORTE&body=NOMBRE%20Y%20APELLIDOS%3A%0ACORREO%3A%0ANUMERO%20DE%20CELULAR%3A" class="resaltado">Seygo Castro</a></h5>
+            </div>
+        </div>
     </div>
 
-    <!-- Notificaciones -->
-    <div id="stock-notification-container" class="notification-container" style="display: none;">
-      <p>Productos con stock bajo:</p>
-      <ul id="stock-low-list"></ul>
+    <div id="dashboard-admin" class="dashboard" style="display: none;">
+        <div class="dashboard-header">
+            <h3>Panel de Administrador</h3>
+            <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
+        </div>
+
+        <div id="stock-notification-container" class="notification-container" style="display: none;">
+            <p>Productos con stock bajo:</p>
+            <ul id="stock-low-list"></ul>
+        </div>
+        
+        <div id="solicitud-notification-container" class="notification-container" style="display: none;">
+            <p>Tienes nuevas solicitudes de repuestos:</p>
+            <ul id="solicitud-list"></ul>
+        </div>
+
+        <div class="admin-icon-menu">
+            <div class="icon-item" onclick="mostrarApartado('entrada')">
+                <img src="entrada-icon.png" alt="Entrada" class="section-icon" />
+                <span>Entrada</span>
+            </div>
+            <div class="icon-item" onclick="mostrarApartado('salida')">
+                <img src="salida-icon.png" alt="Salida" class="section-icon" />
+                <span>Salida</span>
+            </div>
+            <div class="icon-item" onclick="mostrarApartado('inventario')">
+                <img src="inventario-icon.png" alt="Inventario" class="section-icon" />
+                <span>Inventario Completo</span>
+            </div>
+            <div class="icon-item" onclick="mostrarApartado('solicitudes')">
+                <img src="solicitud-icon.png" alt="Solicitudes" class="section-icon" />
+                <span>Solicitudes</span>
+            </div>
+            <div class="icon-item" onclick="exportarExcel()">
+                <img src="excel-icon.png" alt="Exportar Excel" class="section-icon" />
+                <span>Exportar Excel</span>
+            </div>
+            <div class="icon-item" onclick="mostrarApartado('stock')">
+                <img src="stock-icon.png" alt="Stock" class="section-icon" />
+                <span>Stock</span>
+            </div>
+        </div>
+
+        <div id="apartado-entrada" class="admin-section" style="display: none;">
+            <div class="sub-section-container">
+                <h4>Entrada de Productos</h4>
+                <form id="form-entrada">
+                    <input type="text" id="entrada-codigo" placeholder="Código del producto" required />
+                    <input type="text" id="entrada-nombre" placeholder="Nombre del producto" readonly />
+                    <input type="number" id="entrada-cantidad" placeholder="Cantidad" min="1" required />
+                    <input type="date" id="entrada-fecha" required />
+                    <button type="submit">Registrar Entrada</button>
+                </form>
+            </div>
+            <div class="sub-section-container">
+                <h4>Historial de Entradas</h4>
+                <div class="table-responsive">
+                    <table id="tabla-entradas-historial" border="1" cellpadding="8" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Cantidad</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <button class="btn-regresar-bottom" onclick="mostrarApartado('')">Regresar al Menú</button>
+        </div>
+
+        <div id="apartado-salida" class="admin-section" style="display: none;">
+            <div class="sub-section-container">
+                <h4>Salida de Repuestos</h4>
+                <form id="form-salida">
+                    <input type="text" id="salida-codigo" placeholder="Código del repuesto" required />
+                    <input type="text" id="salida-nombre" placeholder="Nombre del repuesto" readonly />
+                    <input type="number" id="salida-cantidad" placeholder="Cantidad" min="1" required />
+                    <input type="text" id="salida-cliente" placeholder="Nombre del cliente" required />
+                    <input type="text" id="salida-numero-ot" placeholder="Número de OT" required />
+                    <input type="text" id="salida-placa" placeholder="Placa" />
+                    <input type="text" id="salida-kilometraje" placeholder="Kilometraje" />
+                    <button type="submit">Registrar Salida</button>
+                </form>
+            </div>
+            <div class="sub-section-container">
+                <h4>Historial de Salidas</h4>
+                <div class="table-responsive">
+                    <table id="tabla-salida" border="1" cellpadding="8" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Repuesto</th>
+                                <th>Cliente</th>
+                                <th>N° OT</th>
+                                <th>Cantidad</th>
+                                <th>Placa</th>
+                                <th>Km</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <button class="btn-regresar-bottom" onclick="mostrarApartado('')">Regresar al Menú</button>
+        </div>
+
+        <div id="apartado-inventario" class="admin-section" style="display: none;">
+            <div class="sub-section-container">
+                <h4>Agregar Producto Nuevo</h4>
+                <form id="form-agregar-producto">
+                    <input type="text" id="nuevo-codigo" placeholder="Código de producto" required />
+                    <input type="text" id="nuevo-nombre" placeholder="Nombre del producto" required />
+                    <input type="text" id="nuevo-lote" placeholder="Lote (opcional)" />
+                    <input type="number" id="nuevo-costo-unitario" placeholder="Costo Unitario S/." step="0.01" required />
+                    <input type="number" id="nuevo-precio-venta" placeholder="Precio de Venta S/." step="0.01" required />
+                    <input type="number" id="nuevo-stock" placeholder="Stock Inicial" min="0" required />
+                    <input type="date" id="nuevo-producto-fecha" required />
+                    <button type="submit">Guardar Producto</button>
+                </form>
+            </div>
+            <div class="sub-section-container">
+                <h4>Inventario Completo</h4>
+                <div class="table-responsive">
+                    <table id="tabla-inventario" border="1" cellpadding="8" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Lote</th>
+                                <th>Costo</th>
+                                <th>Precio</th>
+                                <th>Stock</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <button class="btn-regresar-bottom" onclick="mostrarApartado('')">Regresar al Menú</button>
+        </div>
+
+        <div id="apartado-solicitudes" class="admin-section" style="display: none;">
+            <div class="sub-section-container">
+                <h4>Solicitudes de Mecánicos</h4>
+                <div id="solicitudes-pendientes" class="table-responsive">
+                    <table id="tabla-solicitudes" border="1" cellpadding="8" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Mecánico</th>
+                                <th>Repuesto</th>
+                                <th>Cantidad</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <button class="btn-regresar-bottom" onclick="mostrarApartado('')">Regresar al Menú</button>
+        </div>
+
+        <div id="apartado-stock" class="admin-section" style="display: none;">
+            <div class="sub-section-container">
+                <h4>Inventario por Stock</h4>
+                <input type="text" id="buscar-stock" placeholder="Buscar repuesto por nombre..." oninput="filtrarStock()" />
+                <div class="table-responsive">
+                    <table id="tabla-stock-admin" border="1" cellpadding="8" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Stock</th>
+                                <th>Costo</th>
+                                <th>Precio</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <button class="btn-regresar-bottom" onclick="mostrarApartado('')">Regresar al Menú</button>
+        </div>
+
     </div>
 
-    <div id="solicitud-notification-container" class="notification-container" style="display: none;">
-      <p>Tienes nuevas solicitudes de repuestos:</p>
-      <ul id="solicitud-list"></ul>
+    <div id="dashboard-mecanico" class="dashboard" style="display: none;">
+        <div class="dashboard-header">
+            <h3>Panel de Mecánico</h3>
+            <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
+        </div>
+        
+        <div class="sub-section-container">
+            <h4>Inventario por Stock</h4>
+            <input type="text" id="buscar-repuesto-nombre" placeholder="Buscar repuesto por nombre..." oninput="filtrarRepuestosMecanicoPorNombre()" />
+            <div class="table-responsive">
+                <table id="tabla-stock" border="1" cellpadding="8" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Fecha de Última Actualización</th>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Stock Actual</th>
+                            <th>Costo Unitario</th>
+                            <th>Precio Venta</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="sub-section-container">
+            <h3>Solicitar Repuesto</h3>
+            <form id="form-solicitar-repuesto">
+                <input type="text" id="solicitar-nombre" placeholder="Nombre del repuesto" required />
+                <input type="number" id="solicitar-cantidad" placeholder="Cantidad" min="1" required />
+                <button type="submit">Solicitar</button>
+            </form>
+        </div>
     </div>
 
-    <!-- MENÚ PRINCIPAL DE ICONOS -->
-    <div class="admin-icon-menu">
-      <div class="icon-item" onclick="mostrarApartado('entrada')">
-        <img src="entrada-icon.png" alt="Entrada" class="section-icon" />
-        <span>Entrada</span>
-      </div>
-      <div class="icon-item" onclick="mostrarApartado('salida')">
-        <img src="salida-icon.png" alt="Salida" class="section-icon" />
-        <span>Salida</span>
-      </div>
-      <div class="icon-item" onclick="mostrarApartado('inventario')">
-        <img src="inventario-icon.png" alt="Inventario" class="section-icon" />
-        <span>Inventario Completo</span>
-      </div>
-      <div class="icon-item" onclick="mostrarApartado('solicitudes')">
-        <img src="solicitud-icon.png" alt="Solicitudes" class="section-icon" />
-        <span>Solicitudes</span>
-      </div>
-      <div class="icon-item" onclick="exportarExcel()">
-        <img src="excel-icon.png" alt="Exportar Excel" class="section-icon" />
-        <span>Exportar Excel</span>
-      </div>
-      <div class="icon-item" onclick="mostrarApartado('stock')">
-        <img src="stock-icon.png" alt="Stock" class="section-icon" />
-        <span>Stock</span>
-      </div>
-    </div>
-
-    <!-- SECCIONES DEL ADMINISTRADOR -->
-    <div id="apartado-entrada" class="admin-section" style="display: none;"></div>
-    <div id="apartado-salida" class="admin-section" style="display: none;"></div>
-    <div id="apartado-inventario" class="admin-section" style="display: none;"></div>
-    <div id="apartado-solicitudes" class="admin-section" style="display: none;"></div>
-    <div id="apartado-stock" class="admin-section" style="display: none;"></div>
-  </div>
-
-  <!-- PANEL MECÁNICO -->
-  <div id="dashboard-mecanico" class="dashboard" style="display: none;">
-    <div class="dashboard-header">
-      <h3>Panel de Mecánico</h3>
-      <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
-    </div>
-
-    <div class="sub-section-container">
-      <h4>Inventario por Stock</h4>
-      <input type="text" id="buscar-repuesto-nombre" placeholder="Buscar repuesto por nombre..." oninput="filtrarRepuestosMecanicoPorNombre()" />
-      <div class="table-responsive">
-        <table id="tabla-stock" border="1" cellpadding="8" cellspacing="0">
-          <thead>
-            <tr>
-              <th>Fecha de Última Actualización</th>
-              <th>Código</th>
-              <th>Nombre</th>
-              <th>Stock Actual</th>
-              <th>Costo Unitario</th>
-              <th>Precio Venta</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="sub-section-container">
-      <h3>Solicitar Repuesto</h3>
-      <form id="form-solicitar-repuesto">
-        <input type="text" id="solicitar-nombre" placeholder="Nombre del repuesto" required />
-        <input type="number" id="solicitar-cantidad" placeholder="Cantidad" min="1" required />
-        <button type="submit">Solicitar</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- LIBRERÍAS Y SCRIPT PRINCIPAL -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-  <script src="script.js"></script>
-</body>
-</html>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
+    </body>
+    </html>

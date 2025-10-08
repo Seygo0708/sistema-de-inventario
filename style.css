@@ -642,3 +642,28 @@ button[onclick^="actualizarSalida"]:hover {
     background-color: #ff9999;
 }
 
+/* --- SECCIÓN ASISTENTE IA --- */
+#apartado-ia {
+  text-align: center;
+}
+
+#chatbot {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  display: inline-block;
+  text-align: left;
+}
+
+#chatbox {
+  height: 200px;
+  overflow-y: auto;
+  background: #f4f7ff;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}

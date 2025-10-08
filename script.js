@@ -1079,3 +1079,80 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Configurar el cambio de avatar inmediatamente
     configurarCambioAvatar();
 });
+
+// Al final de script.js añade esto:
+
+// =============================
+// 🧠 SECCIÓN INTELIGENCIA ARTIFICIAL
+// =============================
+function cargarIA() {
+  const productos = [
+    { nombre: "PASTILLAS DE FRENO", stock: 2, salida: 12 },
+    { nombre: "ARRANCADOR", stock: 1, salida: 8 },
+    { nombre: "MUELLE TERCERA", stock: 5, salida: 23 },
+    { nombre: "BOMBÍN DE FRENO", stock: 6, salida: 5 },
+    { nombre: "FILTRO DE CABINA", stock: 4, salida: 15 }
+  ];
+
+  const ctx = document.getElementById('grafico-uso');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: productos.map(p => p.nombre),
+      datasets: [{
+        label: 'Salidas recientes',
+        data: productos.map(p => p.salida),
+        backgroundColor: 'rgba(0, 119, 255, 0.5)',
+        borderColor: '#007bff',
+        borderWidth: 1
+      }]
+    },
+    options: { scales: { y: { beginAtZero: true } } }
+  });
+
+  const lista = document.getElementById('lista-recomendaciones');
+  lista.innerHTML = "";
+  productos.forEach(p => {
+    const li = document.createElement('li');
+    if (p.stock < 5 && p.salida > 10)
+      li.textContent = `⚠️ ${p.nombre}: alta demanda y bajo stock.`;
+    else if (p.stock > 10 && p.salida < 3)
+      li.textContent = `ℹ️ ${p.nombre}: exceso de stock.`;
+    else
+      li.textContent = `✅ ${p.nombre}: movimiento estable.`;
+    lista.appendChild(li);
+  });
+}
+
+// =============================
+// 💬 CHATBOT IA LOCAL
+// =============================
+function enviarPregunta() {
+  const input = document.getElementById("chat-input");
+  const pregunta = input.value.trim();
+  const chatbox = document.getElementById("chatbox");
+
+  if (!pregunta) return;
+  const userMsg = document.createElement("div");
+  userMsg.innerHTML = `<b>👨‍💼 Tú:</b> ${pregunta}`;
+  chatbox.appendChild(userMsg);
+  input.value = "";
+
+  const respuesta = generarRespuesta(pregunta.toLowerCase());
+  const botMsg = document.createElement("div");
+  botMsg.innerHTML = `<b>🤖 IA:</b> ${respuesta}`;
+  chatbox.appendChild(botMsg);
+  chatbox.scrollTop = chatbox.scrollHeight;
+}
+
+function generarRespuesta(pregunta) {
+  if (pregunta.includes("bajo stock")) return "Arrancador, Pastillas de freno y Filtro de cabina tienen bajo stock.";
+  if (pregunta.includes("más salida") || pregunta.includes("vendido")) return "Muelle Tercera y Filtro de cabina son los más usados.";
+  if (pregunta.includes("resumen")) return "Aumento del 20% en salidas y 10% de productos con bajo stock.";
+  if (pregunta.includes("hola")) return "¡Hola! Puedo ayudarte a analizar tu inventario.";
+  return "No tengo información sobre eso todavía, pero pronto usaré tus datos reales de Firebase.";
+}
+
+// Añade dentro de mostrarApartado(nombre):
+// else if (nombre === 'ia') { cargarIA(); }
+

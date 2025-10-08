@@ -888,7 +888,7 @@ async function exportarExcel() {
             const item = doc.data();
             return {
                 'Fecha Ãšltima ActualizaciÃ³n': item.fechaActualizacion || 'N/A',
-                CÃ³digo: item.codigo,
+                CÃdigo: item.codigo,
                 Nombre: item.nombre,
                 Lote: item.lote || '',
                 'Costo Unitario (S/.)': parseFloat(item.costoUnitario).toFixed(2),

@@ -1,4 +1,4 @@
-// --- CONFIGURACIÃ“N MEJORADA DE FIREBASE ---
+// --- CONFIGURACIÓN MEJORADA DE FIREBASE ---
 const firebaseConfig = {
     apiKey: "AIzaSyD04XNtsa6sSGf3e2n9ma9TVysRYaYZE44",
     authDomain: "sistemainventariojpa.firebaseapp.com",
@@ -14,11 +14,11 @@ let db;
 let isCheckingStock = false;
 let isCheckingSolicitudes = false;
 
-// FunciÃ³n para inicializar Firebase
+// Función para inicializar Firebase
 async function initializeFirebase() {
     try {
         if (typeof firebase === 'undefined') {
-            throw new Error("Firebase no se cargÃ³ correctamente. Verifica tu conexiÃ³n a internet o los scripts en tu HTML.");
+            throw new Error("Firebase no se cargó correctamente. Verifica tu conexión a internet o los scripts en tu HTML.");
         }
         
         if (!firebase.apps.length) {
@@ -35,20 +35,22 @@ async function initializeFirebase() {
     }
 }
 
-// FunciÃ³n para cambiar avatar segÃºn el rol seleccionado
-function configurarCambioAvatar() {
-  const roleInputs = document.querySelectorAll('input[name="role"]');
-  const avatarImg = document.getElementById('avatar-img');
-
-  roleInputs.forEach(input => {
-    input.addEventListener('change', function() {
-      if (this.value === "Usuario") {
-        avatarImg.src = "mecanico.gif";
-      } else if (this.value === "admin") {
-        avatarImg.src = "admin.gif";
-      }
+// Función para seleccionar rol con estilo visual
+function selectRole(role) {
+    document.querySelectorAll('.role-option').forEach(option => {
+        option.classList.remove('selected');
     });
-  });
+    
+    if (role === 'Usuario') {
+        document.querySelector('.role-option:first-child').classList.add('selected');
+        document.getElementById('avatar-img').src = "mecanico.gif";
+    } else if (role === 'admin') {
+        document.querySelector('.role-option:last-child').classList.add('selected');
+        document.getElementById('avatar-img').src = "admin.gif";
+    }
+    
+    // Marcar el radio button correspondiente
+    document.querySelector(`input[value="${role}"]`).checked = true;
 }
 
 // --- FUNCIONES DEL SISTEMA ---
@@ -66,7 +68,7 @@ function login() {
         (role === 'Usuario' && username === 'mecanico' && password === '123456')) {
         mostrarDashboard(role);
     } else {
-        alert('Usuario o contraseÃ±a incorrectos.');
+        alert('Usuario o contraseña incorrectos.');
     }
 }
 
@@ -92,11 +94,10 @@ function logout() {
     
     // Al hacer logout, reseteamos a la imagen por defecto
     document.getElementById('avatar-img').src = "avatar.png";
-    // Deseleccionar los radios para que al recargar la pÃ¡gina no estÃ©n marcados
-    const radioMecanico = document.querySelector('input[name="role"][value="Usuario"]');
-    const radioAdmin = document.querySelector('input[name="role"][value="admin"]');
-    if (radioMecanico) radioMecanico.checked = false;
-    if (radioAdmin) radioAdmin.checked = false;
+    // Deseleccionar los radios para que al recargar la página no estén marcados
+    document.querySelectorAll('.role-option').forEach(option => {
+        option.classList.remove('selected');
+    });
 }
 
 function mostrarApartado(nombre) {
@@ -153,7 +154,7 @@ async function autocompletarNombreGenerico(codigoInputId, nombreInputId) {
     }
 
     if (!db) {
-        console.error("Firestore no estÃ¡ inicializado (autocompletarNombreGenerico)");
+        console.error("Firestore no está inicializado (autocompletarNombreGenerico)");
         return;
     }
 
@@ -202,15 +203,15 @@ async function agregarNuevoProducto(event) {
     }
 
     if (!db) {
-        console.error("Firestore no estÃ¡ inicializado (agregarNuevoProducto)");
-        alert("El sistema no estÃ¡ listo. Intente nuevamente.");
+        console.error("Firestore no está inicializado (agregarNuevoProducto)");
+        alert("El sistema no está listo. Intente nuevamente.");
         return;
     }
     
     try {
         const existeCodigoQuery = await db.collection('inventario').where('codigo', '==', codigo).get();
         if (!existeCodigoQuery.empty) {
-            alert('Ya existe un producto con este cÃ³digo.');
+            alert('Ya existe un producto con este código.');
             return;
         }
         
@@ -253,8 +254,8 @@ async function agregarEntrada(event) {
     }
 
     if (!db) {
-        console.error("Firestore no estÃ¡ inicializado (agregarEntrada)");
-        alert("El sistema no estÃ¡ listo. Intente nuevamente.");
+        console.error("Firestore no está inicializado (agregarEntrada)");
+        alert("El sistema no está listo. Intente nuevamente.");
         return;
     }
     
@@ -262,7 +263,7 @@ async function agregarEntrada(event) {
         const querySnapshot = await db.collection('inventario').where('codigo', '==', codigo).get();
         
         if (querySnapshot.empty) {
-            alert('Producto no encontrado. Use "Inventario Completo" para aÃ±adir nuevos Ã­tems.');
+            alert('Producto no encontrado. Use "Inventario Completo" para añadir nuevos ítems.');
             return;
         }
 
@@ -304,13 +305,13 @@ async function agregarSalida(event) {
     const kilometraje = document.getElementById('salida-kilometraje').value || 0;
 
     if (!codigo || isNaN(cantidad) || cantidad <= 0 || !cliente || !numeroOT) {
-        alert('Por favor complete cÃ³digo, cantidad, cliente y NÃºmero OT correctamente.');
+        alert('Por favor complete código, cantidad, cliente y Número OT correctamente.');
         return;
     }
 
     if (!db) {
-        console.error("Firestore no estÃ¡ inicializado (agregarSalida)");
-        alert("El sistema no estÃ¡ listo. Intente nuevamente.");
+        console.error("Firestore no está inicializado (agregarSalida)");
+        alert("El sistema no está listo. Intente nuevamente.");
         return;
     }
 
@@ -359,7 +360,7 @@ async function agregarSalida(event) {
     }
 }
 
-// --- FUNCIÃ“N DE SOLICITUD DE MECÃNICO ---
+// --- FUNCIÓN DE SOLICITUD DE MECÁNICO ---
 async function solicitarRepuesto(event) {
     event.preventDefault();
     
@@ -368,13 +369,13 @@ async function solicitarRepuesto(event) {
     const usuarioMecanico = 'mecanico'; // Asumimos que el usuario actual es "mecanico"
 
     if (!nombre || isNaN(cantidad) || cantidad <= 0) {
-        alert('Por favor, ingrese un nombre de repuesto y una cantidad vÃ¡lida.');
+        alert('Por favor, ingrese un nombre de repuesto y una cantidad válida.');
         return;
     }
 
     if (!db) {
-        console.error("Firestore no estÃ¡ inicializado (solicitarRepuesto)");
-        alert("El sistema no estÃ¡ listo. Intente nuevamente.");
+        console.error("Firestore no está inicializado (solicitarRepuesto)");
+        alert("El sistema no está listo. Intente nuevamente.");
         return;
     }
 
@@ -402,8 +403,8 @@ async function cargarSolicitudesAdmin() {
     tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
     
     if (!db) {
-        tbody.innerHTML = '<tr><td colspan="6">Error: Firestore no estÃ¡ inicializado.</td></tr>';
-        console.error("Firestore no estÃ¡ inicializado (cargarSolicitudesAdmin)");
+        tbody.innerHTML = '<tr><td colspan="6">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarSolicitudesAdmin)");
         return;
     }
 
@@ -428,8 +429,8 @@ async function cargarSolicitudesAdmin() {
                 <td><span class="estado-${solicitud.estado.toLowerCase()}">${solicitud.estado}</span></td>
                 <td class="action-buttons">
                     ${solicitud.estado === 'Pendiente' ? 
-                    `<button class="btn-aceptar" onclick="aceptarSolicitud('${docId}', '${solicitud.repuesto}', ${solicitud.cantidad})">Aceptar</button>
-                    <button class="btn-rechazar" onclick="rechazarSolicitud('${docId}')">Rechazar</button>`
+                    `<button class="btn btn-success btn-sm" onclick="aceptarSolicitud('${docId}', '${solicitud.repuesto}', ${solicitud.cantidad})">Aceptar</button>
+                    <button class="btn btn-danger btn-sm" onclick="rechazarSolicitud('${docId}')">Rechazar</button>`
                     : ''}
                 </td>
             `;
@@ -443,8 +444,8 @@ async function cargarSolicitudesAdmin() {
 
 async function aceptarSolicitud(solicitudId, nombreRepuesto, cantidad) {
     if (!db) {
-        console.error("Firestore no estÃ¡ inicializado (aceptarSolicitud)");
-        alert("El sistema no estÃ¡ listo. Intente nuevamente.");
+        console.error("Firestore no está inicializado (aceptarSolicitud)");
+        alert("El sistema no está listo. Intente nuevamente.");
         return;
     }
 
@@ -452,7 +453,7 @@ async function aceptarSolicitud(solicitudId, nombreRepuesto, cantidad) {
         const querySnapshot = await db.collection('inventario').where('nombre', '==', nombreRepuesto).get();
 
         if (querySnapshot.empty) {
-            alert(`El repuesto "${nombreRepuesto}" no se encuentra en el inventario. Por favor, aÃ±Ã¡dalo primero.`);
+            alert(`El repuesto "${nombreRepuesto}" no se encuentra en el inventario. Por favor, añádalo primero.`);
             await db.collection('solicitudesRepuestos').doc(solicitudId).update({ estado: 'Rechazada - No Existe' });
             cargarSolicitudesAdmin();
             return;
@@ -462,7 +463,7 @@ async function aceptarSolicitud(solicitudId, nombreRepuesto, cantidad) {
         const productoData = productoDoc.data();
 
         if (productoData.stock < cantidad) {
-            alert(`Stock insuficiente para "${nombreRepuesto}". Stock actual: ${productoData.stock}. La solicitud serÃ¡ rechazada.`);
+            alert(`Stock insuficiente para "${nombreRepuesto}". Stock actual: ${productoData.stock}. La solicitud será rechazada.`);
             await db.collection('solicitudesRepuestos').doc(solicitudId).update({ estado: 'Rechazada - Stock Insuficiente' });
             cargarSolicitudesAdmin();
             return;
@@ -491,8 +492,8 @@ async function aceptarSolicitud(solicitudId, nombreRepuesto, cantidad) {
 
 async function rechazarSolicitud(solicitudId) {
     if (!db) {
-        console.error("Firestore no estÃ¡ inicializado (rechazarSolicitud)");
-        alert("El sistema no estÃ¡ listo. Intente nuevamente.");
+        console.error("Firestore no está inicializado (rechazarSolicitud)");
+        alert("El sistema no está listo. Intente nuevamente.");
         return;
     }
 
@@ -513,7 +514,7 @@ async function rechazarSolicitud(solicitudId) {
 
 async function verificarSolicitudesPendientes() {
     if (isCheckingSolicitudes) {
-        console.log("Ya se estÃ¡n verificando las solicitudes. Ignorando llamada duplicada.");
+        console.log("Ya se están verificando las solicitudes. Ignorando llamada duplicada.");
         return;
     }
     
@@ -526,7 +527,7 @@ async function verificarSolicitudesPendientes() {
     notificationContainer.style.display = 'none';
 
     if (!db) {
-        console.error("Firestore no estÃ¡ inicializado (verificarSolicitudesPendientes)");
+        console.error("Firestore no está inicializado (verificarSolicitudesPendientes)");
         isCheckingSolicitudes = false;
         return;
     }
@@ -567,8 +568,8 @@ async function cargarStockAdmin() {
     tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
 
     if (!db) {
-        tbody.innerHTML = '<tr><td colspan="6">Error: Firestore no estÃ¡ inicializado.</td></tr>';
-        console.error("Firestore no estÃ¡ inicializado (cargarStockAdmin)");
+        tbody.innerHTML = '<tr><td colspan="6">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarStockAdmin)");
         return;
     }
 
@@ -605,8 +606,8 @@ async function cargarRepuestosSalida() {
     tbody.innerHTML = '<tr><td colspan="8">Cargando...</td></tr>';
     
     if (!db) {
-        tbody.innerHTML = '<tr><td colspan="8">Error: Firestore no estÃ¡ inicializado.</td></tr>';
-        console.error("Firestore no estÃ¡ inicializado (cargarRepuestosSalida)");
+        tbody.innerHTML = '<tr><td colspan="8">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarRepuestosSalida)");
         return;
     }
 
@@ -630,9 +631,9 @@ async function cargarRepuestosSalida() {
                 <td>${item.cantidad}</td>
                 <td>${item.placa}</td>
                 <td>${item.kilometraje}</td>
-                <td>
-                    <button class="btn-actualizar-salida" onclick="actualizarSalida('${doc.id}')">Actualizar</button>
-                    <button class="btn-eliminar-salida" onclick="eliminarSalida('${doc.id}', '${item.repuesto}', ${item.cantidad})">Eliminar</button>
+                <td class="action-buttons">
+                    <button class="btn btn-warning btn-sm" onclick="actualizarSalida('${doc.id}')">Actualizar</button>
+                    <button class="btn btn-danger btn-sm" onclick="eliminarSalida('${doc.id}', '${item.repuesto}', ${item.cantidad})">Eliminar</button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -648,8 +649,8 @@ async function cargarHistorialEntradas() {
     tbody.innerHTML = '<tr><td colspan="4">Cargando...</td></tr>';
 
     if (!db) {
-        tbody.innerHTML = '<tr><td colspan="4">Error: Firestore no estÃ¡ inicializado.</td></tr>';
-        console.error("Firestore no estÃ¡ inicializado (cargarHistorialEntradas)");
+        tbody.innerHTML = '<tr><td colspan="4">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarHistorialEntradas)");
         return;
     }
 
@@ -684,8 +685,8 @@ async function cargarInventarioCompleto() {
     tbody.innerHTML = '<tr><td colspan="8">Cargando...</td></tr>';
     
     if (!db) {
-        tbody.innerHTML = '<tr><td colspan="8">Error: Firestore no estÃ¡ inicializado.</td></tr>';
-        console.error("Firestore no estÃ¡ inicializado (cargarInventarioCompleto)");
+        tbody.innerHTML = '<tr><td colspan="8">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarInventarioCompleto)");
         return;
     }
 
@@ -710,8 +711,8 @@ async function cargarInventarioCompleto() {
                 <td>S/ ${parseFloat(item.precioVenta).toFixed(2)}</td>
                 <td>${item.stock}</td>
                 <td class="action-buttons">
-                    <button class="btn-actualizar" onclick="actualizarProducto('${doc.id}')">Actualizar</button>
-                    <button class="btn-eliminar" onclick="eliminarProducto('${doc.id}', '${item.nombre}')">Eliminar</button>
+                    <button class="btn btn-warning btn-sm" onclick="actualizarProducto('${doc.id}')">Actualizar</button>
+                    <button class="btn btn-danger btn-sm" onclick="eliminarProducto('${doc.id}', '${item.nombre}')">Eliminar</button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -723,10 +724,10 @@ async function cargarInventarioCompleto() {
 }
 
 async function eliminarProducto(docId, nombre) {
-    if (confirm(`Â¿EstÃ¡s seguro de que quieres eliminar el producto "${nombre}"? Esta acciÃ³n no se puede deshacer.`)) {
+    if (confirm(`¿Estás seguro de que quieres eliminar el producto "${nombre}"? Esta acción no se puede deshacer.`)) {
         if (!db) {
-            console.error("Firestore no estÃ¡ inicializado (eliminarProducto)");
-            alert("El sistema no estÃ¡ listo. Intente nuevamente.");
+            console.error("Firestore no está inicializado (eliminarProducto)");
+            alert("El sistema no está listo. Intente nuevamente.");
             return;
         }
         try {
@@ -743,8 +744,8 @@ async function eliminarProducto(docId, nombre) {
 
 async function actualizarProducto(docId) {
     if (!db) {
-        console.error("Firestore no estÃ¡ inicializado (actualizarProducto)");
-        alert("El sistema no estÃ¡ listo. Intente nuevamente.");
+        console.error("Firestore no está inicializado (actualizarProducto)");
+        alert("El sistema no está listo. Intente nuevamente.");
         return;
     }
     try {
@@ -760,33 +761,33 @@ async function actualizarProducto(docId) {
 
         const nuevoNombre = prompt(`Actualizar nombre:`, producto.nombre);
         if (nuevoNombre === null || nuevoNombre.trim() === '') { 
-            alert('ActualizaciÃ³n cancelada.'); 
+            alert('Actualización cancelada.'); 
             return; 
         }
 
         const nuevoLote = prompt(`Actualizar lote:`, producto.lote || '');
         if (nuevoLote === null) { 
-            alert('ActualizaciÃ³n cancelada.'); 
+            alert('Actualización cancelada.'); 
             return; 
         }
 
         const nuevoCosto = prompt(`Actualizar costo unitario (S/.):`, producto.costoUnitario);
         if (nuevoCosto === null || isNaN(parseFloat(nuevoCosto))) { 
-            alert('ActualizaciÃ³n cancelada. El costo debe ser un nÃºmero.'); 
+            alert('Actualización cancelada. El costo debe ser un número.'); 
             return; 
         }
         const costoFloat = parseFloat(nuevoCosto);
 
         const nuevoPrecio = prompt(`Actualizar precio de venta (S/.):`, producto.precioVenta);
         if (nuevoPrecio === null || isNaN(parseFloat(nuevoPrecio))) { 
-            alert('ActualizaciÃ³n cancelada. El precio debe ser un nÃºmero.'); 
+            alert('Actualización cancelada. El precio debe ser un número.'); 
             return; 
         }
         const precioFloat = parseFloat(nuevoPrecio);
 
         const nuevoStock = prompt(`Actualizar stock:`, producto.stock);
         if (nuevoStock === null || isNaN(parseInt(nuevoStock))) { 
-            alert('ActualizaciÃ³n cancelada. El stock debe ser un nÃºmero entero.'); 
+            alert('Actualización cancelada. El stock debe ser un número entero.'); 
             return; 
         }
         const stockInt = parseInt(nuevoStock);
@@ -816,8 +817,8 @@ async function cargarStockMecanico() {
     tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
 
     if (!db) {
-        tbody.innerHTML = '<tr><td colspan="6">Error: Firestore no estÃ¡ inicializado.</td></tr>';
-        console.error("Firestore no estÃ¡ inicializado (cargarStockMecanico)");
+        tbody.innerHTML = '<tr><td colspan="6">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarStockMecanico)");
         return;
     }
 
@@ -844,7 +845,7 @@ async function cargarStockMecanico() {
             tbody.appendChild(tr);
         });
     } catch (error) {
-        console.error("Error al cargar stock del mecÃ¡nico: ", error);
+        console.error("Error al cargar stock del mecánico: ", error);
         tbody.innerHTML = '<tr><td colspan="6">Error al cargar datos.</td></tr>';
     }
 }
@@ -874,8 +875,8 @@ async function exportarExcel() {
     alert("Generando reporte... Esto puede tardar unos segundos.");
     
     if (!db) {
-        alert("El sistema no estÃ¡ listo para exportar. Intente nuevamente.");
-        console.error("Firestore no estÃ¡ inicializado (exportarExcel)");
+        alert("El sistema no está listo para exportar. Intente nuevamente.");
+        console.error("Firestore no está inicializado (exportarExcel)");
         return;
     }
 
@@ -887,7 +888,7 @@ async function exportarExcel() {
         const dataInventario = inventarioSnaptshot.docs.map(doc => {
             const item = doc.data();
             return {
-                'Fecha Ãšltima ActualizaciÃ³n': item.fechaActualizacion || 'N/A',
+                'Fecha Última Actualización': item.fechaActualizacion || 'N/A',
                 Codigo: item.codigo,
                 Nombre: item.nombre,
                 Lote: item.lote || '',
@@ -927,10 +928,10 @@ async function exportarExcel() {
     }
 }
 
-// --- FUNCIÃ“N PARA VERIFICAR STOCK BAJO (AJUSTADA PARA EVITAR DUPLICACIONES) ---
+// --- FUNCIÓN PARA VERIFICAR STOCK BAJO (AJUSTADA PARA EVITAR DUPLICACIONES) ---
 async function verificarStockBajo() {
     if (isCheckingStock) {
-        console.log("Ya se estÃ¡ verificando el stock. Ignorando llamada duplicada.");
+        console.log("Ya se está verificando el stock. Ignorando llamada duplicada.");
         return;
     }
 
@@ -943,7 +944,7 @@ async function verificarStockBajo() {
     notificationContainer.style.display = 'none';
 
     if (!db) {
-        console.error("Firestore no estÃ¡ inicializado (verificarStockBajo)");
+        console.error("Firestore no está inicializado (verificarStockBajo)");
         isCheckingStock = false;
         return;
     }
@@ -983,8 +984,8 @@ async function verificarStockBajo() {
 // --- FUNCIONES NUEVAS PARA LA TABLA DE SALIDAS ---
 async function actualizarSalida(docId) {
     if (!db) {
-        console.error("Firestore no estÃ¡ inicializado (actualizarSalida)");
-        alert("El sistema no estÃ¡ listo. Intente nuevamente.");
+        console.error("Firestore no está inicializado (actualizarSalida)");
+        alert("El sistema no está listo. Intente nuevamente.");
         return;
     }
 
@@ -1001,14 +1002,14 @@ async function actualizarSalida(docId) {
 
         const nuevaCantidad = prompt(`Actualizar cantidad (actual: ${salida.cantidad}):`, salida.cantidad);
         if (nuevaCantidad === null || isNaN(parseInt(nuevaCantidad))) {
-            alert('ActualizaciÃ³n cancelada o cantidad no vÃ¡lida.');
+            alert('Actualización cancelada o cantidad no válida.');
             return;
         }
         const cantidadInt = parseInt(nuevaCantidad);
 
         const nuevoCliente = prompt(`Actualizar nombre del cliente (actual: ${salida.cliente}):`, salida.cliente);
         if (nuevoCliente === null || nuevoCliente.trim() === '') {
-            alert('ActualizaciÃ³n cancelada.');
+            alert('Actualización cancelada.');
             return;
         }
         
@@ -1027,10 +1028,10 @@ async function actualizarSalida(docId) {
 }
 
 async function eliminarSalida(docId, nombreRepuesto, cantidad) {
-    if (confirm(`Â¿EstÃ¡s seguro de que quieres eliminar la salida de ${cantidad} unidades de "${nombreRepuesto}"?`)) {
+    if (confirm(`¿Estás seguro de que quieres eliminar la salida de ${cantidad} unidades de "${nombreRepuesto}"?`)) {
         if (!db) {
-            console.error("Firestore no estÃ¡ inicializado (eliminarSalida)");
-            alert("El sistema no estÃ¡ listo. Intente nuevamente.");
+            console.error("Firestore no está inicializado (eliminarSalida)");
+            alert("El sistema no está listo. Intente nuevamente.");
             return;
         }
 
@@ -1057,7 +1058,7 @@ async function eliminarSalida(docId, nombreRepuesto, cantidad) {
     }
 }
 
-// --- INICIALIZACIÃ“N DEL SISTEMA ---
+// --- INICIALIZACIÓN DEL SISTEMA ---
 document.addEventListener('DOMContentLoaded', async () => {
     const firebaseInitialized = await initializeFirebase();
     
@@ -1067,7 +1068,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     // Configurar event listeners
-    document.querySelector('#login button').addEventListener('click', login);
+    document.querySelector('#login .btn-primary').addEventListener('click', login);
     document.getElementById('entrada-codigo').addEventListener('input', autocompletarNombreEntrada);
     document.getElementById('salida-codigo').addEventListener('input', autocompletarNombreSalida);
     document.getElementById('nuevo-codigo').addEventListener('input', autocompletarNombreAgregarProducto);
@@ -1075,7 +1076,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('form-salida').addEventListener('submit', agregarSalida);
     document.getElementById('form-agregar-producto').addEventListener('submit', agregarNuevoProducto);
     document.getElementById('form-solicitar-repuesto').addEventListener('submit', solicitarRepuesto);
-    
-    // Configurar el cambio de avatar inmediatamente
-    configurarCambioAvatar();
 });

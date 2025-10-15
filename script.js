@@ -14,6 +14,9 @@ let db;
 let isCheckingStock = false;
 let isCheckingSolicitudes = false;
 
+// Variables para almacenar los gráficos
+let chartInstances = {};
+
 // Función para inicializar Firebase
 async function initializeFirebase() {
     try {
@@ -138,6 +141,12 @@ function mostrarApartado(nombre) {
             document.getElementById('form-entrada').reset();
         } else if (nombre === 'solicitudes') {
             cargarSolicitudesAdmin();
+        } else if (nombre === 'reportes') {
+            // Inicializar reportes si es la primera vez
+            if (Object.keys(chartInstances).length === 0) {
+                inicializarReportes();
+            }
+            generarReportes(); // Generar reportes automáticamente al entrar
         }
     }
 }
@@ -1094,7 +1103,464 @@ async function eliminarSalida(docId, nombreRepuesto, cantidad) {
     }
 }
 
-// --- INICIALIZACIÓN DEL SISTEMA ---
+// ====== SISTEMA DE REPORTES Y GRÁFICOS ======
+
+// Función para inicializar la sección de reportes
+function inicializarReportes() {
+    // Crear instancias de gráficos vacías (solo los que quedan)
+    const chartConfigs = {
+        'chartMovimientosDia': {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: getChartOptions('Movimientos por Día', 'Cantidad')
+        },
+        'chartProductosMovimientos': {
+            type: 'bar',
+            data: { labels: [], datasets: [] },
+            options: getChartOptions('Productos con Más Movimientos', 'Cantidad')
+        },
+        'chartDistribucionStock': {
+            type: 'pie',
+            data: { labels: [], datasets: [] },
+            options: getChartOptions('Distribución de Stock', '')
+        },
+        'chartTendenciaMensual': {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: getChartOptions('Tendencia Mensual', 'Cantidad', true)
+        }
+    };
+
+    // Inicializar solo los gráficos que quedan
+    Object.keys(chartConfigs).forEach(chartId => {
+        const ctx = document.getElementById(chartId).getContext('2d');
+        chartInstances[chartId] = new Chart(ctx, chartConfigs[chartId]);
+    });
+}
+
+// Función para obtener opciones de gráficos
+function getChartOptions(title, yAxisLabel, isMultiLine = false) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'top',
+            },
+            title: {
+                display: true,
+                text: title
+            }
+        },
+        scales: isMultiLine ? {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: yAxisLabel
+                }
+            },
+            x: {
+                title: {
+                    display: true,
+                    text: 'Período'
+                }
+            }
+        } : undefined
+    };
+}
+
+// ====== FUNCIÓN PARA EXPORTAR GRÁFICOS COMO PDF ======
+async function exportarGraficosPDF() {
+    // Mostrar mensaje de carga
+    alert("Generando PDF con los gráficos... Esto puede tardar unos segundos.");
+    
+    try {
+        // Array de gráficos a exportar
+        const graficos = [
+            { id: 'chartMovimientosDia', nombre: 'Movimientos por Día' },
+            { id: 'chartProductosMovimientos', nombre: 'Productos con Más Movimientos' },
+            { id: 'chartDistribucionStock', nombre: 'Distribución de Stock' },
+            { id: 'chartTendenciaMensual', nombre: 'Tendencia Mensual de Movimientos' }
+        ];
+        
+        // Crear un contenedor temporal para las imágenes
+        const contenedorTemporal = document.createElement('div');
+        contenedorTemporal.style.position = 'absolute';
+        contenedorTemporal.style.left = '-9999px';
+        document.body.appendChild(contenedorTemporal);
+        
+        // Crear título del reporte
+        const titulo = document.createElement('h1');
+        titulo.textContent = 'Reporte de Gráficos - Sistema de Inventario';
+        titulo.style.textAlign = 'center';
+        titulo.style.color = '#4361ee';
+        titulo.style.marginBottom = '20px';
+        titulo.style.fontFamily = 'Arial, sans-serif';
+        contenedorTemporal.appendChild(titulo);
+        
+        // Fecha del reporte
+        const fecha = document.createElement('p');
+        fecha.textContent = `Generado el: ${new Date().toLocaleDateString('es-ES', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })}`;
+        fecha.style.textAlign = 'center';
+        fecha.style.color = '#666';
+        fecha.style.marginBottom = '30px';
+        fecha.style.fontFamily = 'Arial, sans-serif';
+        contenedorTemporal.appendChild(fecha);
+        
+        // Capturar cada gráfico como imagen
+        for (const grafico of graficos) {
+            const canvas = document.getElementById(grafico.id);
+            if (!canvas) {
+                console.warn(`No se encontró el canvas: ${grafico.id}`);
+                continue;
+            }
+            
+            // Crear contenedor para el gráfico
+            const contenedorGrafico = document.createElement('div');
+            contenedorGrafico.style.marginBottom = '40px';
+            contenedorGrafico.style.textAlign = 'center';
+            
+            // Título del gráfico
+            const tituloGrafico = document.createElement('h3');
+            tituloGrafico.textContent = grafico.nombre;
+            tituloGrafico.style.color = '#333';
+            tituloGrafico.style.marginBottom = '15px';
+            tituloGrafico.style.fontFamily = 'Arial, sans-serif';
+            contenedorGrafico.appendChild(tituloGrafico);
+            
+            // Crear imagen del canvas
+            const imagen = new Image();
+            imagen.src = canvas.toDataURL('image/png');
+            imagen.style.maxWidth = '600px';
+            imagen.style.height = 'auto';
+            imagen.style.border = '1px solid #ddd';
+            imagen.style.borderRadius = '8px';
+            imagen.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+            
+            contenedorGrafico.appendChild(imagen);
+            contenedorTemporal.appendChild(contenedorGrafico);
+        }
+        
+        // Usar html2pdf para generar el PDF
+        const opciones = {
+            margin: [10, 10, 10, 10],
+            filename: `reporte_graficos_${new Date().toISOString().split('T')[0]}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { 
+                scale: 2,
+                useCORS: true,
+                logging: false
+            },
+            jsPDF: { 
+                unit: 'mm', 
+                format: 'a4', 
+                orientation: 'portrait' 
+            }
+        };
+        
+        // Generar PDF
+        await html2pdf().set(opciones).from(contenedorTemporal).save();
+        
+        // Limpiar contenedor temporal
+        document.body.removeChild(contenedorTemporal);
+        
+        alert("PDF generado exitosamente!");
+        
+    } catch (error) {
+        console.error("Error al generar PDF:", error);
+        alert("Error al generar el PDF. Asegúrese de tener conexión a internet.");
+    }
+}
+
+// Función principal para generar reportes
+async function generarReportes() {
+    if (!db) {
+        console.error("Firestore no está inicializado");
+        return;
+    }
+
+    const periodo = document.getElementById('filtro-periodo').value;
+    const tipoReporte = document.getElementById('filtro-tipo-reporte').value;
+    
+    try {
+        // Obtener datos necesarios
+        const [inventarioData, entradasData, salidasData, solicitudesData] = await Promise.all([
+            db.collection('inventario').get(),
+            db.collection('historialEntradas').get(),
+            db.collection('repuestosSalida').get(),
+            db.collection('solicitudesRepuestos').get()
+        ]);
+
+        // Filtrar datos por período
+        const fechaLimite = calcularFechaLimite(periodo);
+        
+        const entradasFiltradas = entradasData.docs.filter(doc => 
+            !fechaLimite || new Date(doc.data().fecha) >= fechaLimite
+        );
+        
+        const salidasFiltradas = salidasData.docs.filter(doc => 
+            !fechaLimite || new Date(doc.data().fecha) >= fechaLimite
+        );
+        
+        const solicitudesFiltradas = solicitudesData.docs.filter(doc => 
+            !fechaLimite || new Date(doc.data().fecha) >= fechaLimite
+        );
+
+        // Generar todos los gráficos (solo los que quedan)
+        generarGraficoMovimientosDia(entradasFiltradas, salidasFiltradas);
+        generarGraficoProductosMovimientos(entradasFiltradas, salidasFiltradas);
+        generarGraficoDistribucionStock(inventarioData);
+        generarGraficoTendenciaMensual(entradasFiltradas, salidasFiltradas);
+        
+        // Actualizar estadísticas resumen
+        actualizarEstadisticasResumen(
+            entradasFiltradas, 
+            salidasFiltradas, 
+            solicitudesFiltradas, 
+            inventarioData
+        );
+
+    } catch (error) {
+        console.error("Error al generar reportes:", error);
+        alert("Error al generar los reportes estadísticos.");
+    }
+}
+
+// Función para calcular fecha límite según período
+function calcularFechaLimite(periodo) {
+    if (periodo === 'todo') return null;
+    
+    const dias = parseInt(periodo);
+    const fecha = new Date();
+    fecha.setDate(fecha.getDate() - dias);
+    return fecha;
+}
+
+// Gráfico 1: Movimientos por día
+function generarGraficoMovimientosDia(entradas, salidas) {
+    const movimientosPorDia = {};
+    
+    // Procesar entradas
+    entradas.forEach(doc => {
+        const data = doc.data();
+        const fecha = data.fecha;
+        if (!movimientosPorDia[fecha]) {
+            movimientosPorDia[fecha] = { entradas: 0, salidas: 0 };
+        }
+        movimientosPorDia[fecha].entradas += data.cantidad;
+    });
+    
+    // Procesar salidas
+    salidas.forEach(doc => {
+        const data = doc.data();
+        const fecha = data.fecha;
+        if (!movimientosPorDia[fecha]) {
+            movimientosPorDia[fecha] = { entradas: 0, salidas: 0 };
+        }
+        movimientosPorDia[fecha].salidas += data.cantidad;
+    });
+    
+    // Ordenar fechas
+    const fechas = Object.keys(movimientosPorDia).sort();
+    const ultimasFechas = fechas.slice(-15); // Últimos 15 días
+    
+    const datosEntradas = ultimasFechas.map(fecha => movimientosPorDia[fecha].entradas);
+    const datosSalidas = ultimasFechas.map(fecha => movimientosPorDia[fecha].salidas);
+    
+    // Actualizar gráfico
+    chartInstances.chartMovimientosDia.data.labels = ultimasFechas;
+    chartInstances.chartMovimientosDia.data.datasets = [
+        {
+            label: 'Entradas',
+            data: datosEntradas,
+            borderColor: '#4361ee',
+            backgroundColor: 'rgba(67, 97, 238, 0.1)',
+            tension: 0.4,
+            fill: true
+        },
+        {
+            label: 'Salidas',
+            data: datosSalidas,
+            borderColor: '#f72585',
+            backgroundColor: 'rgba(247, 37, 133, 0.1)',
+            tension: 0.4,
+            fill: true
+        }
+    ];
+    chartInstances.chartMovimientosDia.update();
+}
+
+// Gráfico 2: Productos con más movimientos
+function generarGraficoProductosMovimientos(entradas, salidas) {
+    const movimientosProductos = {};
+    
+    // Contar movimientos por producto
+    [...entradas, ...salidas].forEach(doc => {
+        const data = doc.data();
+        const producto = data.nombre || data.repuesto;
+        if (producto) {
+            if (!movimientosProductos[producto]) {
+                movimientosProductos[producto] = 0;
+            }
+            movimientosProductos[producto] += data.cantidad;
+        }
+    });
+    
+    // Ordenar y tomar top 10
+    const productosTop = Object.entries(movimientosProductos)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10);
+    
+    const nombres = productosTop.map(([nombre]) => nombre);
+    const cantidades = productosTop.map(([, cantidad]) => cantidad);
+    
+    chartInstances.chartProductosMovimientos.data.labels = nombres;
+    chartInstances.chartProductosMovimientos.data.datasets = [{
+        label: 'Cantidad Movida',
+        data: cantidades,
+        backgroundColor: [
+            '#4361ee', '#7209b7', '#f72585', '#4cc9f0', 
+            '#4895ef', '#3a0ca3', '#f8961e', '#2a9d8f', 
+            '#e9c46a', '#e76f51'
+        ],
+        borderWidth: 1
+    }];
+    chartInstances.chartProductosMovimientos.update();
+}
+
+// Gráfico 3: Distribución de stock
+function generarGraficoDistribucionStock(inventario) {
+    const categoriasStock = {
+        'Stock Bajo (≤5)': 0,
+        'Stock Medio (6-20)': 0,
+        'Stock Alto (>20)': 0
+    };
+    
+    inventario.forEach(doc => {
+        const stock = doc.data().stock;
+        if (stock <= 5) {
+            categoriasStock['Stock Bajo (≤5)']++;
+        } else if (stock <= 20) {
+            categoriasStock['Stock Medio (6-20)']++;
+        } else {
+            categoriasStock['Stock Alto (>20)']++;
+        }
+    });
+    
+    const labels = Object.keys(categoriasStock);
+    const data = Object.values(categoriasStock);
+    
+    chartInstances.chartDistribucionStock.data.labels = labels;
+    chartInstances.chartDistribucionStock.data.datasets = [{
+        data: data,
+        backgroundColor: ['#f72585', '#f8961e', '#4cc9f0'],
+        borderWidth: 2,
+        borderColor: '#fff'
+    }];
+    chartInstances.chartDistribucionStock.update();
+}
+
+// Gráfico 4: Tendencia mensual
+function generarGraficoTendenciaMensual(entradas, salidas) {
+    const movimientosMensuales = {};
+    
+    // Procesar entradas mensuales
+    entradas.forEach(doc => {
+        const data = doc.data();
+        const fecha = new Date(data.fecha);
+        const mesKey = `${fecha.getFullYear()}-${fecha.getMonth() + 1}`;
+        const mesLabel = `${fecha.toLocaleString('es-ES', { month: 'short' })} ${fecha.getFullYear()}`;
+        
+        if (!movimientosMensuales[mesKey]) {
+            movimientosMensuales[mesKey] = {
+                label: mesLabel,
+                entradas: 0,
+                salidas: 0
+            };
+        }
+        movimientosMensuales[mesKey].entradas += data.cantidad;
+    });
+    
+    // Procesar salidas mensuales
+    salidas.forEach(doc => {
+        const data = doc.data();
+        const fecha = new Date(data.fecha);
+        const mesKey = `${fecha.getFullYear()}-${fecha.getMonth() + 1}`;
+        const mesLabel = `${fecha.toLocaleString('es-ES', { month: 'short' })} ${fecha.getFullYear()}`;
+        
+        if (!movimientosMensuales[mesKey]) {
+            movimientosMensuales[mesKey] = {
+                label: mesLabel,
+                entradas: 0,
+                salidas: 0
+            };
+        }
+        movimientosMensuales[mesKey].salidas += data.cantidad;
+    });
+    
+    // Ordenar por fecha
+    const mesesOrdenados = Object.values(movimientosMensuales)
+        .sort((a, b) => new Date(a.label) - new Date(b.label));
+    
+    const labels = mesesOrdenados.map(mes => mes.label);
+    const datosEntradas = mesesOrdenados.map(mes => mes.entradas);
+    const datosSalidas = mesesOrdenados.map(mes => mes.salidas);
+    
+    chartInstances.chartTendenciaMensual.data.labels = labels;
+    chartInstances.chartTendenciaMensual.data.datasets = [
+        {
+            label: 'Entradas Mensuales',
+            data: datosEntradas,
+            borderColor: '#4361ee',
+            backgroundColor: 'rgba(67, 97, 238, 0.1)',
+            fill: true,
+            tension: 0.4
+        },
+        {
+            label: 'Salidas Mensuales',
+            data: datosSalidas,
+            borderColor: '#f72585',
+            backgroundColor: 'rgba(247, 37, 133, 0.1)',
+            fill: true,
+            tension: 0.4
+        }
+    ];
+    chartInstances.chartTendenciaMensual.update();
+}
+
+// Actualizar estadísticas resumen
+function actualizarEstadisticasResumen(entradas, salidas, solicitudes, inventario) {
+    // Total entradas
+    const totalEntradas = entradas.reduce((sum, doc) => sum + doc.data().cantidad, 0);
+    document.getElementById('total-entradas').textContent = totalEntradas.toLocaleString();
+    
+    // Total salidas
+    const totalSalidas = salidas.reduce((sum, doc) => sum + doc.data().cantidad, 0);
+    document.getElementById('total-salidas').textContent = totalSalidas.toLocaleString();
+    
+    // Total solicitudes
+    document.getElementById('total-solicitudes').textContent = solicitudes.length.toLocaleString();
+    
+    // Productos activos (con stock > 0)
+    const productosActivos = inventario.docs.filter(doc => doc.data().stock > 0).length;
+    document.getElementById('productos-activos').textContent = productosActivos.toLocaleString();
+    
+    // Valor total del inventario
+    const valorTotal = inventario.docs.reduce((sum, doc) => {
+        const data = doc.data();
+        return sum + (data.stock * parseFloat(data.costoUnitario || 0));
+    }, 0);
+    document.getElementById('valor-total').textContent = `S/ ${valorTotal.toFixed(2)}`;
+}
+
+// ====== INICIALIZACIÓN DEL SISTEMA ======
 document.addEventListener('DOMContentLoaded', async () => {
     const firebaseInitialized = await initializeFirebase();
     

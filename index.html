@@ -6,6 +6,8 @@
     <title>Sistema de Inventario</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -108,6 +110,12 @@
                                 </a>
                             </li>
                             <li>
+                                <a href="#" onclick="mostrarApartado('reportes')" class="nav-link">
+                                    <i class="fas fa-chart-pie"></i>
+                                    <span>Reportes</span>
+                                </a>
+                            </li>
+                            <li>
                                 <a href="#" onclick="exportarExcel()" class="nav-link">
                                     <i class="fas fa-file-excel"></i>
                                     <span>Exportar Excel</span>
@@ -121,21 +129,23 @@
                 <div class="main-content">
                     <!-- PÁGINA DE INICIO -->
                     <div id="apartado-inicio" class="admin-section">
-                        <div class="welcome-section">
-                            <h2>Bienvenido al Panel de Administrador</h2>
-                            <p>Gestiona tu inventario de manera eficiente</p>
+                        <div class="section-header">
+                            <h2><i class="fas fa-home"></i> Panel Principal</h2>
+                            <p>Bienvenido al Sistema de Gestión de Inventario</p>
                         </div>
 
+                        <!-- NOTIFICACIONES -->
                         <div id="stock-notification-container" class="notification-container" style="display: none;">
-                            <p><i class="fas fa-exclamation-triangle"></i> Productos con stock bajo:</p>
+                            <h4><i class="fas fa-exclamation-triangle"></i> Alertas de Stock Bajo</h4>
                             <ul id="stock-low-list"></ul>
                         </div>
-                        
+
                         <div id="solicitud-notification-container" class="notification-container" style="display: none;">
-                            <p><i class="fas fa-bell"></i> Tienes nuevas solicitudes de repuestos:</p>
+                            <h4><i class="fas fa-bell"></i> Solicitudes Pendientes</h4>
                             <ul id="solicitud-list"></ul>
                         </div>
 
+                        <!-- ESTADÍSTICAS -->
                         <div class="stats-cards">
                             <div class="stat-card">
                                 <div class="stat-icon">
@@ -143,7 +153,7 @@
                                 </div>
                                 <div class="stat-info">
                                     <h3 id="total-productos">0</h3>
-                                    <p>Productos en Inventario</p>
+                                    <p>Total Productos</p>
                                 </div>
                             </div>
                             <div class="stat-card">
@@ -152,7 +162,7 @@
                                 </div>
                                 <div class="stat-info">
                                     <h3 id="productos-stock-bajo">0</h3>
-                                    <p>Productos con Stock Bajo</p>
+                                    <p>Stock Bajo</p>
                                 </div>
                             </div>
                             <div class="stat-card">
@@ -166,8 +176,9 @@
                             </div>
                         </div>
 
+                        <!-- ACCIONES RÁPIDAS -->
                         <div class="quick-actions">
-                            <h3>Acciones Rápidas</h3>
+                            <h3><i class="fas fa-bolt"></i> Acciones Rápidas</h3>
                             <div class="action-buttons">
                                 <button class="btn btn-primary" onclick="mostrarApartado('entrada')">
                                     <i class="fas fa-arrow-down"></i> Registrar Entrada
@@ -188,22 +199,45 @@
                     <!-- SECCIÓN ENTRADA -->
                     <div id="apartado-entrada" class="admin-section" style="display: none;">
                         <div class="section-header">
-                            <h2><i class="fas fa-arrow-down"></i> Entrada de Productos</h2>
-                            <p>Registra la entrada de productos al inventario</p>
+                            <h2><i class="fas fa-arrow-down"></i> Registro de Entradas</h2>
+                            <p>Registrar nuevos ingresos al inventario</p>
                         </div>
 
                         <div class="content-grid">
+                            <!-- FORMULARIO ENTRADA -->
                             <div class="sub-section-container">
-                                <h4><i class="fas fa-edit"></i> Registrar Entrada</h4>
-                                <form id="form-entrada" class="form-grid">
-                                    <input type="text" id="entrada-codigo" class="form-control" placeholder="Código del producto" required />
-                                    <input type="text" id="entrada-nombre" class="form-control" placeholder="Nombre del producto" readonly />
-                                    <input type="number" id="entrada-cantidad" class="form-control" placeholder="Cantidad" min="1" required />
-                                    <input type="date" id="entrada-fecha" class="form-control" required />
-                                    <button type="submit" class="btn btn-primary">Registrar Entrada</button>
+                                <h4><i class="fas fa-plus-circle"></i> Nueva Entrada</h4>
+                                <form id="form-entrada">
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="entrada-fecha">Fecha de Entrada</label>
+                                            <input type="date" id="entrada-fecha" class="form-control" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="entrada-codigo">Código del Producto</label>
+                                            <input type="text" id="entrada-codigo" class="form-control" 
+                                                   placeholder="Ingrese código" required 
+                                                   oninput="autocompletarNombreEntrada()">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="entrada-nombre">Nombre del Producto</label>
+                                            <input type="text" id="entrada-nombre" class="form-control" 
+                                                   placeholder="Se autocompletará" readonly>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="entrada-cantidad">Cantidad</label>
+                                            <input type="number" id="entrada-cantidad" class="form-control" 
+                                                   placeholder="Cantidad a ingresar" min="1" required>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Registrar Entrada
+                                    </button>
                                 </form>
                             </div>
-                            <div class="sub-section-container">
+
+                            <!-- HISTORIAL DE ENTRADAS -->
+                            <div class="sub-section-container full-width">
                                 <h4><i class="fas fa-history"></i> Historial de Entradas</h4>
                                 <div class="table-responsive">
                                     <table id="tabla-entradas-historial">
@@ -211,11 +245,13 @@
                                             <tr>
                                                 <th>Fecha</th>
                                                 <th>Código</th>
-                                                <th>Nombre</th>
+                                                <th>Producto</th>
                                                 <th>Cantidad</th>
                                             </tr>
                                         </thead>
-                                        <tbody></tbody>
+                                        <tbody>
+                                            <!-- Los datos se cargan dinámicamente -->
+                                        </tbody>
                                     </table>
                                 </div>
                             </div>
@@ -225,26 +261,62 @@
                     <!-- SECCIÓN SALIDA -->
                     <div id="apartado-salida" class="admin-section" style="display: none;">
                         <div class="section-header">
-                            <h2><i class="fas fa-arrow-up"></i> Salida de Repuestos</h2>
-                            <p>Registra la salida de repuestos del inventario</p>
+                            <h2><i class="fas fa-arrow-up"></i> Registro de Salidas</h2>
+                            <p>Registrar salidas de productos del inventario</p>
                         </div>
 
                         <div class="content-grid">
+                            <!-- FORMULARIO SALIDA -->
                             <div class="sub-section-container">
-                                <h4><i class="fas fa-edit"></i> Registrar Salida</h4>
-                                <form id="form-salida" class="form-grid">
-                                    <input type="text" id="salida-codigo" class="form-control" placeholder="Código del repuesto" required />
-                                    <input type="text" id="salida-nombre" class="form-control" placeholder="Nombre del repuesto" readonly />
-                                    <input type="number" id="salida-cantidad" class="form-control" placeholder="Cantidad" min="1" required />
-                                    <input type="text" id="salida-cliente" class="form-control" placeholder="Nombre del cliente" required />
-                                    <input type="text" id="salida-numero-ot" class="form-control" placeholder="Número de OT" required />
-                                    <input type="text" id="salida-placa" class="form-control" placeholder="Placa" />
-                                    <input type="text" id="salida-kilometraje" class="form-control" placeholder="Kilometraje" />
-                                    <button type="submit" class="btn btn-primary">Registrar Salida</button>
+                                <h4><i class="fas fa-minus-circle"></i> Nueva Salida</h4>
+                                <form id="form-salida">
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="salida-codigo">Código del Producto</label>
+                                            <input type="text" id="salida-codigo" class="form-control" 
+                                                   placeholder="Ingrese código" required 
+                                                   oninput="autocompletarNombreSalida()">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="salida-nombre">Nombre del Producto</label>
+                                            <input type="text" id="salida-nombre" class="form-control" 
+                                                   placeholder="Se autocompletará" readonly>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="salida-cantidad">Cantidad</label>
+                                            <input type="number" id="salida-cantidad" class="form-control" 
+                                                   placeholder="Cantidad a retirar" min="1" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="salida-cliente">Cliente</label>
+                                            <input type="text" id="salida-cliente" class="form-control" 
+                                                   placeholder="Nombre del cliente" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="salida-numero-ot">Número OT</label>
+                                            <input type="text" id="salida-numero-ot" class="form-control" 
+                                                   placeholder="Número de orden de trabajo" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="salida-placa">Placa del Vehículo</label>
+                                            <input type="text" id="salida-placa" class="form-control" 
+                                                   placeholder="Placa (opcional)">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="salida-kilometraje">Kilometraje</label>
+                                            <input type="number" id="salida-kilometraje" class="form-control" 
+                                                   placeholder="Kilometraje (opcional)" min="0">
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-paper-plane"></i> Registrar Salida
+                                    </button>
                                 </form>
                             </div>
-                            <div class="sub-section-container">
-                                <h4><i class="fas fa-history"></i> Historial de Salidas</h4>
+
+                            <!-- HISTORIAL DE SALIDAS -->
+                            <div class="sub-section-container full-width">
+                                <h4><i class="fas fa-list-alt"></i> Historial de Salidas</h4>
                                 <div class="table-responsive">
                                     <table id="tabla-salida">
                                         <thead>
@@ -255,11 +327,13 @@
                                                 <th>N° OT</th>
                                                 <th>Cantidad</th>
                                                 <th>Placa</th>
-                                                <th>Km</th>
+                                                <th>Kilometraje</th>
                                                 <th>Acciones</th>
                                             </tr>
                                         </thead>
-                                        <tbody></tbody>
+                                        <tbody>
+                                            <!-- Los datos se cargan dinámicamente -->
+                                        </tbody>
                                     </table>
                                 </div>
                             </div>
@@ -270,40 +344,77 @@
                     <div id="apartado-inventario" class="admin-section" style="display: none;">
                         <div class="section-header">
                             <h2><i class="fas fa-boxes"></i> Inventario Completo</h2>
-                            <p>Gestiona todos los productos del inventario</p>
+                            <p>Gestión completa de todos los productos en inventario</p>
                         </div>
 
                         <div class="content-grid">
+                            <!-- AGREGAR NUEVO PRODUCTO -->
                             <div class="sub-section-container">
-                                <h4><i class="fas fa-plus-circle"></i> Agregar Producto Nuevo</h4>
-                                <form id="form-agregar-producto" class="form-grid">
-                                    <input type="text" id="nuevo-codigo" class="form-control" placeholder="Código de producto" required />
-                                    <input type="text" id="nuevo-nombre" class="form-control" placeholder="Nombre del producto" required />
-                                    <input type="text" id="nuevo-lote" class="form-control" placeholder="Lote (opcional)" />
-                                    <input type="number" id="nuevo-costo-unitario" class="form-control" placeholder="Costo Unitario S/." step="0.01" required />
-                                    <input type="number" id="nuevo-precio-venta" class="form-control" placeholder="Precio de Venta S/." step="0.01" required />
-                                    <input type="number" id="nuevo-stock" class="form-control" placeholder="Stock Inicial" min="0" required />
-                                    <input type="date" id="nuevo-producto-fecha" class="form-control" required />
-                                    <button type="submit" class="btn btn-primary">Guardar Producto</button>
+                                <h4><i class="fas fa-plus"></i> Agregar Nuevo Producto</h4>
+                                <form id="form-agregar-producto">
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="nuevo-codigo">Código del Producto</label>
+                                            <input type="text" id="nuevo-codigo" class="form-control" 
+                                                   placeholder="Código único" required 
+                                                   oninput="autocompletarNombreAgregarProducto()">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="nuevo-nombre">Nombre del Producto</label>
+                                            <input type="text" id="nuevo-nombre" class="form-control" 
+                                                   placeholder="Nombre descriptivo" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="nuevo-lote">Lote</label>
+                                            <input type="text" id="nuevo-lote" class="form-control" 
+                                                   placeholder="Número de lote (opcional)">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="nuevo-costo-unitario">Costo Unitario (S/.)</label>
+                                            <input type="number" id="nuevo-costo-unitario" class="form-control" 
+                                                   placeholder="0.00" min="0" step="0.01" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="nuevo-precio-venta">Precio de Venta (S/.)</label>
+                                            <input type="number" id="nuevo-precio-venta" class="form-control" 
+                                                   placeholder="0.00" min="0" step="0.01" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="nuevo-stock">Stock Inicial</label>
+                                            <input type="number" id="nuevo-stock" class="form-control" 
+                                                   placeholder="0" min="0" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="nuevo-producto-fecha">Fecha de Actualización</label>
+                                            <input type="date" id="nuevo-producto-fecha" class="form-control" required>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Guardar Producto
+                                    </button>
                                 </form>
                             </div>
+
+                            <!-- LISTA DE INVENTARIO -->
                             <div class="sub-section-container full-width">
-                                <h4><i class="fas fa-list"></i> Lista de Productos</h4>
+                                <h4><i class="fas fa-list"></i> Lista de Productos en Inventario</h4>
                                 <div class="table-responsive">
                                     <table id="tabla-inventario">
                                         <thead>
                                             <tr>
-                                                <th>Fecha</th>
+                                                <th>Fecha Actualización</th>
                                                 <th>Código</th>
                                                 <th>Nombre</th>
                                                 <th>Lote</th>
-                                                <th>Costo</th>
-                                                <th>Precio</th>
+                                                <th>Costo Unitario</th>
+                                                <th>Precio Venta</th>
                                                 <th>Stock</th>
                                                 <th>Acciones</th>
                                             </tr>
                                         </thead>
-                                        <tbody></tbody>
+                                        <tbody>
+                                            <!-- Los datos se cargan dinámicamente -->
+                                        </tbody>
                                     </table>
                                 </div>
                             </div>
@@ -313,28 +424,28 @@
                     <!-- SECCIÓN SOLICITUDES -->
                     <div id="apartado-solicitudes" class="admin-section" style="display: none;">
                         <div class="section-header">
-                            <h2><i class="fas fa-clipboard-list"></i> Solicitudes de Mecánicos</h2>
-                            <p>Gestiona las solicitudes de repuestos de los mecánicos</p>
+                            <h2><i class="fas fa-clipboard-list"></i> Gestión de Solicitudes</h2>
+                            <p>Gestionar solicitudes de repuestos del personal mecánico</p>
                         </div>
 
-                        <div class="content-grid">
-                            <div class="sub-section-container full-width">
-                                <h4><i class="fas fa-list"></i> Solicitudes Pendientes</h4>
-                                <div id="solicitudes-pendientes" class="table-responsive">
-                                    <table id="tabla-solicitudes">
-                                        <thead>
-                                            <tr>
-                                                <th>Fecha</th>
-                                                <th>Mecánico</th>
-                                                <th>Repuesto</th>
-                                                <th>Cantidad</th>
-                                                <th>Estado</th>
-                                                <th>Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody></tbody>
-                                    </table>
-                                </div>
+                        <div class="sub-section-container full-width">
+                            <h4><i class="fas fa-tasks"></i> Solicitudes Pendientes</h4>
+                            <div class="table-responsive">
+                                <table id="tabla-solicitudes">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Mecánico</th>
+                                            <th>Repuesto</th>
+                                            <th>Cantidad</th>
+                                            <th>Estado</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Los datos se cargan dinámicamente -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -342,31 +453,144 @@
                     <!-- SECCIÓN STOCK -->
                     <div id="apartado-stock" class="admin-section" style="display: none;">
                         <div class="section-header">
-                            <h2><i class="fas fa-chart-bar"></i> Inventario por Stock</h2>
-                            <p>Consulta el estado actual del stock de productos</p>
+                            <h2><i class="fas fa-chart-bar"></i> Stock Actual</h2>
+                            <p>Consulta rápida del stock disponible</p>
                         </div>
 
                         <div class="content-grid">
-                            <div class="sub-section-container full-width">
-                                <h4><i class="fas fa-search"></i> Buscar Productos</h4>
+                            <!-- BUSCADOR -->
+                            <div class="sub-section-container">
+                                <h4><i class="fas fa-search"></i> Buscar Producto</h4>
                                 <div class="form-group">
-                                    <input type="text" id="buscar-stock" class="form-control" placeholder="Buscar repuesto por nombre..." oninput="filtrarStock()" />
+                                    <input type="text" id="buscar-stock" class="form-control" 
+                                           placeholder="Buscar por nombre..." oninput="filtrarStock()">
                                 </div>
+                            </div>
+
+                            <!-- TABLA STOCK -->
+                            <div class="sub-section-container full-width">
+                                <h4><i class="fas fa-boxes"></i> Stock Disponible</h4>
                                 <div class="table-responsive">
                                     <table id="tabla-stock-admin">
                                         <thead>
                                             <tr>
-                                                <th>Fecha</th>
+                                                <th>Fecha Actualización</th>
                                                 <th>Código</th>
                                                 <th>Nombre</th>
                                                 <th>Stock</th>
-                                                <th>Costo</th>
-                                                <th>Precio</th>
+                                                <th>Costo Unitario</th>
+                                                <th>Precio Venta</th>
                                             </tr>
                                         </thead>
-                                        <tbody></tbody>
+                                        <tbody>
+                                            <!-- Los datos se cargan dinámicamente -->
+                                        </tbody>
                                     </table>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN REPORTES -->
+                    <div id="apartado-reportes" class="admin-section" style="display: none;">
+                        <div class="section-header">
+                            <h2><i class="fas fa-chart-pie"></i> Reportes y Estadísticas</h2>
+                            <p>Análisis visual de los datos del inventario</p>
+                        </div>
+
+                        <!-- FILTROS DE REPORTES -->
+                        <div class="sub-section-container">
+                            <h4><i class="fas fa-filter"></i> Filtros de Reportes</h4>
+                            <div class="form-grid">
+                                <select id="filtro-periodo" class="form-control" onchange="generarReportes()">
+                                    <option value="7">Últimos 7 días</option>
+                                    <option value="30" selected>Últimos 30 días</option>
+                                    <option value="90">Últimos 3 meses</option>
+                                    <option value="365">Último año</option>
+                                    <option value="todo">Todo el historial</option>
+                                </select>
+                                <select id="filtro-tipo-reporte" class="form-control" onchange="generarReportes()">
+                                    <option value="general">Reporte General</option>
+                                    <option value="entradas">Solo Entradas</option>
+                                    <option value="salidas">Solo Salidas</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="generarReportes()">
+                                    <i class="fas fa-sync-alt"></i> Actualizar Reportes
+                                </button>
+                                <button class="btn btn-success" onclick="exportarGraficosPDF()">
+                                    <i class="fas fa-file-pdf"></i> Exportar PDF
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- GRÁFICOS PRINCIPALES -->
+                        <div class="charts-grid">
+                            <!-- GRÁFICO 1: MOVIMIENTOS POR DÍA -->
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <h4><i class="fas fa-chart-line"></i> Movimientos por Día</h4>
+                                    <p>Entradas y salidas diarias</p>
+                                </div>
+                                <div class="chart-wrapper">
+                                    <canvas id="chartMovimientosDia"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- GRÁFICO 2: PRODUCTOS MÁS MOVIMIENTOS -->
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <h4><i class="fas fa-chart-bar"></i> Productos con Más Movimientos</h4>
+                                    <p>Top 10 productos más activos</p>
+                                </div>
+                                <div class="chart-wrapper">
+                                    <canvas id="chartProductosMovimientos"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- GRÁFICO 3: DISTRIBUCIÓN DE STOCK -->
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <h4><i class="fas fa-chart-pie"></i> Distribución de Stock</h4>
+                                    <p>Estado actual del inventario</p>
+                                </div>
+                                <div class="chart-wrapper">
+                                    <canvas id="chartDistribucionStock"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- GRÁFICO 4: TENDENCIA MENSUAL -->
+                            <div class="chart-container full-width">
+                                <div class="chart-header">
+                                    <h4><i class="fas fa-chart-area"></i> Tendencia Mensual de Movimientos</h4>
+                                    <p>Comparativa mensual de entradas vs salidas</p>
+                                </div>
+                                <div class="chart-wrapper">
+                                    <canvas id="chartTendenciaMensual"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ESTADÍSTICAS RESUMEN -->
+                        <div class="stats-summary">
+                            <div class="stat-item">
+                                <div class="stat-value" id="total-entradas">0</div>
+                                <div class="stat-label">Total Entradas</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="total-salidas">0</div>
+                                <div class="stat-label">Total Salidas</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="total-solicitudes">0</div>
+                                <div class="stat-label">Solicitudes</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="productos-activos">0</div>
+                                <div class="stat-label">Productos Activos</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="valor-total">S/ 0.00</div>
+                                <div class="stat-label">Valor Total Inventario</div>
                             </div>
                         </div>
                     </div>
@@ -382,36 +606,67 @@
                     <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
                 </button>
             </div>
-            
-            <div class="sub-section-container">
-                <h4><i class="fas fa-boxes"></i> Inventario por Stock</h4>
-                <div class="form-group">
-                    <input type="text" id="buscar-repuesto-nombre" class="form-control" placeholder="Buscar repuesto por nombre..." oninput="filtrarRepuestosMecanicoPorNombre()" />
-                </div>
-                <div class="table-responsive">
-                    <table id="tabla-stock">
-                        <thead>
-                            <tr>
-                                <th>Fecha de Última Actualización</th>
-                                <th>Código</th>
-                                <th>Nombre</th>
-                                <th>Stock Actual</th>
-                                <th>Costo Unitario</th>
-                                <th>Precio Venta</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
 
-            <div class="sub-section-container">
-                <h4><i class="fas fa-clipboard-list"></i> Solicitar Repuesto</h4>
-                <form id="form-solicitar-repuesto" class="form-grid">
-                    <input type="text" id="solicitar-nombre" class="form-control" placeholder="Nombre del repuesto" required />
-                    <input type="number" id="solicitar-cantidad" class="form-control" placeholder="Cantidad" min="1" required />
-                    <button type="submit" class="btn btn-primary">Solicitar</button>
-                </form>
+            <div class="main-content">
+                <div class="section-header">
+                    <h2><i class="fas fa-tools"></i> Bienvenido Mecánico</h2>
+                    <p>Consulta stock y solicita repuestos</p>
+                </div>
+
+                <div class="content-grid">
+                    <!-- SOLICITAR REPUESTO -->
+                    <div class="sub-section-container">
+                        <h4><i class="fas fa-clipboard-list"></i> Solicitar Repuesto</h4>
+                        <form id="form-solicitar-repuesto">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="solicitar-nombre">Nombre del Repuesto</label>
+                                    <input type="text" id="solicitar-nombre" class="form-control" 
+                                           placeholder="Nombre del repuesto" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="solicitar-cantidad">Cantidad</label>
+                                    <input type="number" id="solicitar-cantidad" class="form-control" 
+                                           placeholder="Cantidad requerida" min="1" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Enviar Solicitud
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- BUSCAR REPUESTO -->
+                    <div class="sub-section-container">
+                        <h4><i class="fas fa-search"></i> Buscar Repuesto</h4>
+                        <div class="form-group">
+                            <input type="text" id="buscar-repuesto-nombre" class="form-control" 
+                                   placeholder="Buscar por nombre..." oninput="filtrarRepuestosMecanicoPorNombre()">
+                        </div>
+                    </div>
+
+                    <!-- STOCK DISPONIBLE -->
+                    <div class="sub-section-container full-width">
+                        <h4><i class="fas fa-boxes"></i> Stock Disponible</h4>
+                        <div class="table-responsive">
+                            <table id="tabla-stock">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha Actualización</th>
+                                        <th>Código</th>
+                                        <th>Nombre</th>
+                                        <th>Stock</th>
+                                        <th>Costo Unitario</th>
+                                        <th>Precio Venta</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Los datos se cargan dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

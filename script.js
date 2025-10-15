@@ -1170,13 +1170,11 @@ function getChartOptions(title, yAxisLabel, isMultiLine = false) {
     };
 }
 
-// ====== FUNCIÓN PARA EXPORTAR GRÁFICOS COMO PDF ======
+// ====== FUNCIÓN CORREGIDA PARA EXPORTAR GRÁFICOS COMO PDF ======
 async function exportarGraficosPDF() {
-    // Mostrar mensaje de carga
     alert("Generando PDF con los gráficos... Esto puede tardar unos segundos.");
     
     try {
-        // Array de gráficos a exportar
         const graficos = [
             { id: 'chartMovimientosDia', nombre: 'Movimientos por Día' },
             { id: 'chartProductosMovimientos', nombre: 'Productos con Más Movimientos' },
@@ -1184,98 +1182,110 @@ async function exportarGraficosPDF() {
             { id: 'chartTendenciaMensual', nombre: 'Tendencia Mensual de Movimientos' }
         ];
         
-        // Crear un contenedor temporal para las imágenes
+        // Crear contenedor temporal optimizado
         const contenedorTemporal = document.createElement('div');
-        contenedorTemporal.style.position = 'absolute';
-        contenedorTemporal.style.left = '-9999px';
+        contenedorTemporal.style.cssText = `
+            position: absolute;
+            left: -9999px;
+            width: 794px;
+            padding: 15px;
+            background: white;
+            font-family: Arial, sans-serif;
+        `;
         document.body.appendChild(contenedorTemporal);
         
-        // Crear título del reporte
-        const titulo = document.createElement('h1');
-        titulo.textContent = 'Reporte de Gráficos - Sistema de Inventario';
-        titulo.style.textAlign = 'center';
-        titulo.style.color = '#4361ee';
-        titulo.style.marginBottom = '20px';
-        titulo.style.fontFamily = 'Arial, sans-serif';
-        contenedorTemporal.appendChild(titulo);
+        // Header del reporte
+        const header = document.createElement('div');
+        header.innerHTML = `
+            <h1 style="text-align: center; color: #4361ee; margin: 0 0 5px 0; font-size: 22px; font-weight: bold;">
+                REPORTE DE GRÁFICOS - SISTEMA DE INVENTARIO
+            </h1>
+            <div style="text-align: center; color: #666; margin-bottom: 15px; font-size: 12px; font-weight: bold;">
+                Generado el: ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}
+            </div>
+        `;
+        contenedorTemporal.appendChild(header);
         
-        // Fecha del reporte
-        const fecha = document.createElement('p');
-        fecha.textContent = `Generado el: ${new Date().toLocaleDateString('es-ES', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        })}`;
-        fecha.style.textAlign = 'center';
-        fecha.style.color = '#666';
-        fecha.style.marginBottom = '30px';
-        fecha.style.fontFamily = 'Arial, sans-serif';
-        contenedorTemporal.appendChild(fecha);
+        // Grid de gráficos 2x2
+        const grid = document.createElement('div');
+        grid.style.cssText = `
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        `;
         
-        // Capturar cada gráfico como imagen
-        for (const grafico of graficos) {
+        // Procesar cada gráfico
+        graficos.forEach(grafico => {
             const canvas = document.getElementById(grafico.id);
-            if (!canvas) {
-                console.warn(`No se encontró el canvas: ${grafico.id}`);
-                continue;
-            }
+            if (!canvas) return;
             
-            // Crear contenedor para el gráfico
-            const contenedorGrafico = document.createElement('div');
-            contenedorGrafico.style.marginBottom = '40px';
-            contenedorGrafico.style.textAlign = 'center';
+            const card = document.createElement('div');
+            card.style.cssText = `
+                background: #f8f9fa;
+                padding: 10px;
+                border-radius: 6px;
+                border: 1px solid #dee2e6;
+                text-align: center;
+            `;
             
-            // Título del gráfico
-            const tituloGrafico = document.createElement('h3');
-            tituloGrafico.textContent = grafico.nombre;
-            tituloGrafico.style.color = '#333';
-            tituloGrafico.style.marginBottom = '15px';
-            tituloGrafico.style.fontFamily = 'Arial, sans-serif';
-            contenedorGrafico.appendChild(tituloGrafico);
+            card.innerHTML = `
+                <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; height: 35px; display: flex; align-items: center; justify-content: center;">
+                    ${grafico.nombre}
+                </div>
+                <img src="${canvas.toDataURL('image/png')}" 
+                     style="width: 100%; height: 160px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; background: white;">
+            `;
             
-            // Crear imagen del canvas
-            const imagen = new Image();
-            imagen.src = canvas.toDataURL('image/png');
-            imagen.style.maxWidth = '600px';
-            imagen.style.height = 'auto';
-            imagen.style.border = '1px solid #ddd';
-            imagen.style.borderRadius = '8px';
-            imagen.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-            
-            contenedorGrafico.appendChild(imagen);
-            contenedorTemporal.appendChild(contenedorGrafico);
-        }
+            grid.appendChild(card);
+        });
         
-        // Usar html2pdf para generar el PDF
+        contenedorTemporal.appendChild(grid);
+        
+        // Footer
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            font-size: 11px;
+            color: #495057;
+            text-align: center;
+        `;
+        footer.innerHTML = `
+            <strong>Sistema de Gestión de Inventario</strong> | 
+            Generado automáticamente | 
+            ${new Date().getFullYear()}
+        `;
+        contenedorTemporal.appendChild(footer);
+        
+        // Configuración PDF
         const opciones = {
-            margin: [10, 10, 10, 10],
+            margin: [5, 5, 5, 5],
             filename: `reporte_graficos_${new Date().toISOString().split('T')[0]}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
+            image: { type: 'jpeg', quality: 0.95 },
             html2canvas: { 
                 scale: 2,
                 useCORS: true,
-                logging: false
+                logging: false,
+                width: 794,
+                height: contenedorTemporal.scrollHeight
             },
-            jsPDF: { 
-                unit: 'mm', 
-                format: 'a4', 
-                orientation: 'portrait' 
-            }
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
         
         // Generar PDF
         await html2pdf().set(opciones).from(contenedorTemporal).save();
         
-        // Limpiar contenedor temporal
+        // Limpiar
         document.body.removeChild(contenedorTemporal);
         
-        alert("PDF generado exitosamente!");
+        alert("✅ PDF generado exitosamente! Todos los gráficos en una sola hoja.");
         
     } catch (error) {
         console.error("Error al generar PDF:", error);
-        alert("Error al generar el PDF. Asegúrese de tener conexión a internet.");
+        alert("❌ Error al generar el PDF. Verifique su conexión.");
     }
 }
 

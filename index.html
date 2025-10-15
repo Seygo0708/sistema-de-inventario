@@ -63,202 +63,314 @@
                 </button>
             </div>
 
-            <div id="stock-notification-container" class="notification-container" style="display: none;">
-                <p><i class="fas fa-exclamation-triangle"></i> Productos con stock bajo:</p>
-                <ul id="stock-low-list"></ul>
-            </div>
-            
-            <div id="solicitud-notification-container" class="notification-container" style="display: none;">
-                <p><i class="fas fa-bell"></i> Tienes nuevas solicitudes de repuestos:</p>
-                <ul id="solicitud-list"></ul>
-            </div>
+            <div class="dashboard-container">
+                <!-- BARRA LATERAL -->
+                <div class="sidebar">
+                    <div class="sidebar-header">
+                        <h4>Menú de Navegación</h4>
+                    </div>
+                    <nav class="sidebar-nav">
+                        <ul>
+                            <li>
+                                <a href="#" onclick="mostrarApartado('')" class="nav-link active">
+                                    <i class="fas fa-home"></i>
+                                    <span>Inicio</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="mostrarApartado('entrada')" class="nav-link">
+                                    <i class="fas fa-arrow-down"></i>
+                                    <span>Entrada</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="mostrarApartado('salida')" class="nav-link">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span>Salida</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="mostrarApartado('inventario')" class="nav-link">
+                                    <i class="fas fa-boxes"></i>
+                                    <span>Inventario Completo</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="mostrarApartado('solicitudes')" class="nav-link">
+                                    <i class="fas fa-clipboard-list"></i>
+                                    <span>Solicitudes</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="mostrarApartado('stock')" class="nav-link">
+                                    <i class="fas fa-chart-bar"></i>
+                                    <span>Stock</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="exportarExcel()" class="nav-link">
+                                    <i class="fas fa-file-excel"></i>
+                                    <span>Exportar Excel</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
 
-            <div class="admin-icon-menu">
-                <div class="icon-item" onclick="mostrarApartado('entrada')">
-                    <i class="fas fa-arrow-down"></i>
-                    <span>Entrada</span>
-                </div>
-                <div class="icon-item" onclick="mostrarApartado('salida')">
-                    <i class="fas fa-arrow-up"></i>
-                    <span>Salida</span>
-                </div>
-                <div class="icon-item" onclick="mostrarApartado('inventario')">
-                    <i class="fas fa-boxes"></i>
-                    <span>Inventario Completo</span>
-                </div>
-                <div class="icon-item" onclick="mostrarApartado('solicitudes')">
-                    <i class="fas fa-clipboard-list"></i>
-                    <span>Solicitudes</span>
-                </div>
-                <div class="icon-item" onclick="exportarExcel()">
-                    <i class="fas fa-file-excel"></i>
-                    <span>Exportar Excel</span>
-                </div>
-                <div class="icon-item" onclick="mostrarApartado('stock')">
-                    <i class="fas fa-chart-bar"></i>
-                    <span>Stock</span>
-                </div>
-            </div>
+                <!-- CONTENIDO PRINCIPAL -->
+                <div class="main-content">
+                    <!-- PÁGINA DE INICIO -->
+                    <div id="apartado-inicio" class="admin-section">
+                        <div class="welcome-section">
+                            <h2>Bienvenido al Panel de Administrador</h2>
+                            <p>Gestiona tu inventario de manera eficiente</p>
+                        </div>
 
-            <div id="apartado-entrada" class="admin-section" style="display: none;">
-                <div class="sub-section-container">
-                    <h4><i class="fas fa-arrow-down"></i> Entrada de Productos</h4>
-                    <form id="form-entrada" class="form-grid">
-                        <input type="text" id="entrada-codigo" class="form-control" placeholder="Código del producto" required />
-                        <input type="text" id="entrada-nombre" class="form-control" placeholder="Nombre del producto" readonly />
-                        <input type="number" id="entrada-cantidad" class="form-control" placeholder="Cantidad" min="1" required />
-                        <input type="date" id="entrada-fecha" class="form-control" required />
-                        <button type="submit" class="btn btn-primary">Registrar Entrada</button>
-                    </form>
-                </div>
-                <div class="sub-section-container">
-                    <h4><i class="fas fa-history"></i> Historial de Entradas</h4>
-                    <div class="table-responsive">
-                        <table id="tabla-entradas-historial" border="1" cellpadding="8" cellspacing="0">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Código</th>
-                                    <th>Nombre</th>
-                                    <th>Cantidad</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+                        <div id="stock-notification-container" class="notification-container" style="display: none;">
+                            <p><i class="fas fa-exclamation-triangle"></i> Productos con stock bajo:</p>
+                            <ul id="stock-low-list"></ul>
+                        </div>
+                        
+                        <div id="solicitud-notification-container" class="notification-container" style="display: none;">
+                            <p><i class="fas fa-bell"></i> Tienes nuevas solicitudes de repuestos:</p>
+                            <ul id="solicitud-list"></ul>
+                        </div>
+
+                        <div class="stats-cards">
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-boxes"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h3 id="total-productos">0</h3>
+                                    <p>Productos en Inventario</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h3 id="productos-stock-bajo">0</h3>
+                                    <p>Productos con Stock Bajo</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h3 id="solicitudes-pendientes">0</h3>
+                                    <p>Solicitudes Pendientes</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="quick-actions">
+                            <h3>Acciones Rápidas</h3>
+                            <div class="action-buttons">
+                                <button class="btn btn-primary" onclick="mostrarApartado('entrada')">
+                                    <i class="fas fa-arrow-down"></i> Registrar Entrada
+                                </button>
+                                <button class="btn btn-primary" onclick="mostrarApartado('salida')">
+                                    <i class="fas fa-arrow-up"></i> Registrar Salida
+                                </button>
+                                <button class="btn btn-primary" onclick="mostrarApartado('inventario')">
+                                    <i class="fas fa-plus"></i> Agregar Producto
+                                </button>
+                                <button class="btn btn-primary" onclick="mostrarApartado('solicitudes')">
+                                    <i class="fas fa-clipboard-check"></i> Ver Solicitudes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN ENTRADA -->
+                    <div id="apartado-entrada" class="admin-section" style="display: none;">
+                        <div class="section-header">
+                            <h2><i class="fas fa-arrow-down"></i> Entrada de Productos</h2>
+                            <p>Registra la entrada de productos al inventario</p>
+                        </div>
+
+                        <div class="content-grid">
+                            <div class="sub-section-container">
+                                <h4><i class="fas fa-edit"></i> Registrar Entrada</h4>
+                                <form id="form-entrada" class="form-grid">
+                                    <input type="text" id="entrada-codigo" class="form-control" placeholder="Código del producto" required />
+                                    <input type="text" id="entrada-nombre" class="form-control" placeholder="Nombre del producto" readonly />
+                                    <input type="number" id="entrada-cantidad" class="form-control" placeholder="Cantidad" min="1" required />
+                                    <input type="date" id="entrada-fecha" class="form-control" required />
+                                    <button type="submit" class="btn btn-primary">Registrar Entrada</button>
+                                </form>
+                            </div>
+                            <div class="sub-section-container">
+                                <h4><i class="fas fa-history"></i> Historial de Entradas</h4>
+                                <div class="table-responsive">
+                                    <table id="tabla-entradas-historial">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Código</th>
+                                                <th>Nombre</th>
+                                                <th>Cantidad</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN SALIDA -->
+                    <div id="apartado-salida" class="admin-section" style="display: none;">
+                        <div class="section-header">
+                            <h2><i class="fas fa-arrow-up"></i> Salida de Repuestos</h2>
+                            <p>Registra la salida de repuestos del inventario</p>
+                        </div>
+
+                        <div class="content-grid">
+                            <div class="sub-section-container">
+                                <h4><i class="fas fa-edit"></i> Registrar Salida</h4>
+                                <form id="form-salida" class="form-grid">
+                                    <input type="text" id="salida-codigo" class="form-control" placeholder="Código del repuesto" required />
+                                    <input type="text" id="salida-nombre" class="form-control" placeholder="Nombre del repuesto" readonly />
+                                    <input type="number" id="salida-cantidad" class="form-control" placeholder="Cantidad" min="1" required />
+                                    <input type="text" id="salida-cliente" class="form-control" placeholder="Nombre del cliente" required />
+                                    <input type="text" id="salida-numero-ot" class="form-control" placeholder="Número de OT" required />
+                                    <input type="text" id="salida-placa" class="form-control" placeholder="Placa" />
+                                    <input type="text" id="salida-kilometraje" class="form-control" placeholder="Kilometraje" />
+                                    <button type="submit" class="btn btn-primary">Registrar Salida</button>
+                                </form>
+                            </div>
+                            <div class="sub-section-container">
+                                <h4><i class="fas fa-history"></i> Historial de Salidas</h4>
+                                <div class="table-responsive">
+                                    <table id="tabla-salida">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Repuesto</th>
+                                                <th>Cliente</th>
+                                                <th>N° OT</th>
+                                                <th>Cantidad</th>
+                                                <th>Placa</th>
+                                                <th>Km</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN INVENTARIO -->
+                    <div id="apartado-inventario" class="admin-section" style="display: none;">
+                        <div class="section-header">
+                            <h2><i class="fas fa-boxes"></i> Inventario Completo</h2>
+                            <p>Gestiona todos los productos del inventario</p>
+                        </div>
+
+                        <div class="content-grid">
+                            <div class="sub-section-container">
+                                <h4><i class="fas fa-plus-circle"></i> Agregar Producto Nuevo</h4>
+                                <form id="form-agregar-producto" class="form-grid">
+                                    <input type="text" id="nuevo-codigo" class="form-control" placeholder="Código de producto" required />
+                                    <input type="text" id="nuevo-nombre" class="form-control" placeholder="Nombre del producto" required />
+                                    <input type="text" id="nuevo-lote" class="form-control" placeholder="Lote (opcional)" />
+                                    <input type="number" id="nuevo-costo-unitario" class="form-control" placeholder="Costo Unitario S/." step="0.01" required />
+                                    <input type="number" id="nuevo-precio-venta" class="form-control" placeholder="Precio de Venta S/." step="0.01" required />
+                                    <input type="number" id="nuevo-stock" class="form-control" placeholder="Stock Inicial" min="0" required />
+                                    <input type="date" id="nuevo-producto-fecha" class="form-control" required />
+                                    <button type="submit" class="btn btn-primary">Guardar Producto</button>
+                                </form>
+                            </div>
+                            <div class="sub-section-container full-width">
+                                <h4><i class="fas fa-list"></i> Lista de Productos</h4>
+                                <div class="table-responsive">
+                                    <table id="tabla-inventario">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Código</th>
+                                                <th>Nombre</th>
+                                                <th>Lote</th>
+                                                <th>Costo</th>
+                                                <th>Precio</th>
+                                                <th>Stock</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN SOLICITUDES -->
+                    <div id="apartado-solicitudes" class="admin-section" style="display: none;">
+                        <div class="section-header">
+                            <h2><i class="fas fa-clipboard-list"></i> Solicitudes de Mecánicos</h2>
+                            <p>Gestiona las solicitudes de repuestos de los mecánicos</p>
+                        </div>
+
+                        <div class="content-grid">
+                            <div class="sub-section-container full-width">
+                                <h4><i class="fas fa-list"></i> Solicitudes Pendientes</h4>
+                                <div id="solicitudes-pendientes" class="table-responsive">
+                                    <table id="tabla-solicitudes">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Mecánico</th>
+                                                <th>Repuesto</th>
+                                                <th>Cantidad</th>
+                                                <th>Estado</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN STOCK -->
+                    <div id="apartado-stock" class="admin-section" style="display: none;">
+                        <div class="section-header">
+                            <h2><i class="fas fa-chart-bar"></i> Inventario por Stock</h2>
+                            <p>Consulta el estado actual del stock de productos</p>
+                        </div>
+
+                        <div class="content-grid">
+                            <div class="sub-section-container full-width">
+                                <h4><i class="fas fa-search"></i> Buscar Productos</h4>
+                                <div class="form-group">
+                                    <input type="text" id="buscar-stock" class="form-control" placeholder="Buscar repuesto por nombre..." oninput="filtrarStock()" />
+                                </div>
+                                <div class="table-responsive">
+                                    <table id="tabla-stock-admin">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Código</th>
+                                                <th>Nombre</th>
+                                                <th>Stock</th>
+                                                <th>Costo</th>
+                                                <th>Precio</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <button class="btn btn-primary btn-regresar-bottom" onclick="mostrarApartado('')">
-                    <i class="fas fa-arrow-left"></i> Regresar al Menú
-                </button>
-            </div>
-
-            <div id="apartado-salida" class="admin-section" style="display: none;">
-                <div class="sub-section-container">
-                    <h4><i class="fas fa-arrow-up"></i> Salida de Repuestos</h4>
-                    <form id="form-salida" class="form-grid">
-                        <input type="text" id="salida-codigo" class="form-control" placeholder="Código del repuesto" required />
-                        <input type="text" id="salida-nombre" class="form-control" placeholder="Nombre del repuesto" readonly />
-                        <input type="number" id="salida-cantidad" class="form-control" placeholder="Cantidad" min="1" required />
-                        <input type="text" id="salida-cliente" class="form-control" placeholder="Nombre del cliente" required />
-                        <input type="text" id="salida-numero-ot" class="form-control" placeholder="Número de OT" required />
-                        <input type="text" id="salida-placa" class="form-control" placeholder="Placa" />
-                        <input type="text" id="salida-kilometraje" class="form-control" placeholder="Kilometraje" />
-                        <button type="submit" class="btn btn-primary">Registrar Salida</button>
-                    </form>
-                </div>
-                <div class="sub-section-container">
-                    <h4><i class="fas fa-history"></i> Historial de Salidas</h4>
-                    <div class="table-responsive">
-                        <table id="tabla-salida" border="1" cellpadding="8" cellspacing="0">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Repuesto</th>
-                                    <th>Cliente</th>
-                                    <th>N° OT</th>
-                                    <th>Cantidad</th>
-                                    <th>Placa</th>
-                                    <th>Km</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-                <button class="btn btn-primary btn-regresar-bottom" onclick="mostrarApartado('')">
-                    <i class="fas fa-arrow-left"></i> Regresar al Menú
-                </button>
-            </div>
-
-            <div id="apartado-inventario" class="admin-section" style="display: none;">
-                <div class="sub-section-container">
-                    <h4><i class="fas fa-plus-circle"></i> Agregar Producto Nuevo</h4>
-                    <form id="form-agregar-producto" class="form-grid">
-                        <input type="text" id="nuevo-codigo" class="form-control" placeholder="Código de producto" required />
-                        <input type="text" id="nuevo-nombre" class="form-control" placeholder="Nombre del producto" required />
-                        <input type="text" id="nuevo-lote" class="form-control" placeholder="Lote (opcional)" />
-                        <input type="number" id="nuevo-costo-unitario" class="form-control" placeholder="Costo Unitario S/." step="0.01" required />
-                        <input type="number" id="nuevo-precio-venta" class="form-control" placeholder="Precio de Venta S/." step="0.01" required />
-                        <input type="number" id="nuevo-stock" class="form-control" placeholder="Stock Inicial" min="0" required />
-                        <input type="date" id="nuevo-producto-fecha" class="form-control" required />
-                        <button type="submit" class="btn btn-primary">Guardar Producto</button>
-                    </form>
-                </div>
-                <div class="sub-section-container">
-                    <h4><i class="fas fa-boxes"></i> Inventario Completo</h4>
-                    <div class="table-responsive">
-                        <table id="tabla-inventario" border="1" cellpadding="8" cellspacing="0">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Código</th>
-                                    <th>Nombre</th>
-                                    <th>Lote</th>
-                                    <th>Costo</th>
-                                    <th>Precio</th>
-                                    <th>Stock</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-                <button class="btn btn-primary btn-regresar-bottom" onclick="mostrarApartado('')">
-                    <i class="fas fa-arrow-left"></i> Regresar al Menú
-                </button>
-            </div>
-
-            <div id="apartado-solicitudes" class="admin-section" style="display: none;">
-                <div class="sub-section-container">
-                    <h4><i class="fas fa-clipboard-list"></i> Solicitudes de Mecánicos</h4>
-                    <div id="solicitudes-pendientes" class="table-responsive">
-                        <table id="tabla-solicitudes" border="1" cellpadding="8" cellspacing="0">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Mecánico</th>
-                                    <th>Repuesto</th>
-                                    <th>Cantidad</th>
-                                    <th>Estado</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-                <button class="btn btn-primary btn-regresar-bottom" onclick="mostrarApartado('')">
-                    <i class="fas fa-arrow-left"></i> Regresar al Menú
-                </button>
-            </div>
-
-            <div id="apartado-stock" class="admin-section" style="display: none;">
-                <div class="sub-section-container">
-                    <h4><i class="fas fa-chart-bar"></i> Inventario por Stock</h4>
-                    <div class="form-group">
-                        <input type="text" id="buscar-stock" class="form-control" placeholder="Buscar repuesto por nombre..." oninput="filtrarStock()" />
-                    </div>
-                    <div class="table-responsive">
-                        <table id="tabla-stock-admin" border="1" cellpadding="8" cellspacing="0">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Código</th>
-                                    <th>Nombre</th>
-                                    <th>Stock</th>
-                                    <th>Costo</th>
-                                    <th>Precio</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-                <button class="btn btn-primary btn-regresar-bottom" onclick="mostrarApartado('')">
-                    <i class="fas fa-arrow-left"></i> Regresar al Menú
-                </button>
             </div>
         </div>
 
@@ -277,7 +389,7 @@
                     <input type="text" id="buscar-repuesto-nombre" class="form-control" placeholder="Buscar repuesto por nombre..." oninput="filtrarRepuestosMecanicoPorNombre()" />
                 </div>
                 <div class="table-responsive">
-                    <table id="tabla-stock" border="1" cellpadding="8" cellspacing="0">
+                    <table id="tabla-stock">
                         <thead>
                             <tr>
                                 <th>Fecha de Última Actualización</th>

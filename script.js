@@ -78,6 +78,7 @@ function mostrarDashboard(role) {
     if (role === 'admin') {
         document.getElementById('dashboard-admin').style.display = 'block';
         mostrarApartado('');
+        actualizarEstadisticas();
     } else {
         document.getElementById('dashboard-mecanico').style.display = 'block';
         cargarStockMecanico();
@@ -104,20 +105,19 @@ function mostrarApartado(nombre) {
     const secciones = document.querySelectorAll('.admin-section');
     secciones.forEach(sec => sec.style.display = 'none');
 
-    const menuIconos = document.querySelector('.admin-icon-menu');
-    const stockNotification = document.getElementById('stock-notification-container');
-    const solicitudNotification = document.getElementById('solicitud-notification-container');
+    // Actualizar navegación activa
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+    });
 
     if (nombre === '') {
-        menuIconos.style.display = 'grid';
-        stockNotification.style.display = 'block';
-        solicitudNotification.style.display = 'block';
+        document.querySelector('.nav-link[onclick="mostrarApartado(\'\')"]').classList.add('active');
+        document.getElementById('apartado-inicio').style.display = 'block';
         verificarStockBajo();
         verificarSolicitudesPendientes();
+        actualizarEstadisticas();
     } else {
-        menuIconos.style.display = 'none';
-        stockNotification.style.display = 'none';
-        solicitudNotification.style.display = 'none';
+        document.querySelector(`.nav-link[onclick="mostrarApartado('${nombre}')"]`).classList.add('active');
         const mostrar = document.getElementById('apartado-' + nombre);
         if (mostrar) mostrar.style.display = 'block';
 
@@ -139,6 +139,34 @@ function mostrarApartado(nombre) {
         } else if (nombre === 'solicitudes') {
             cargarSolicitudesAdmin();
         }
+    }
+}
+
+// Función para actualizar estadísticas en la página de inicio
+async function actualizarEstadisticas() {
+    if (!db) return;
+
+    try {
+        // Total de productos
+        const inventarioSnapshot = await db.collection('inventario').get();
+        document.getElementById('total-productos').textContent = inventarioSnapshot.size;
+
+        // Productos con stock bajo
+        let stockBajoCount = 0;
+        inventarioSnapshot.forEach(doc => {
+            const item = doc.data();
+            if (item.stock <= 5) {
+                stockBajoCount++;
+            }
+        });
+        document.getElementById('productos-stock-bajo').textContent = stockBajoCount;
+
+        // Solicitudes pendientes
+        const solicitudesSnapshot = await db.collection('solicitudesRepuestos').where('estado', '==', 'Pendiente').get();
+        document.getElementById('solicitudes-pendientes').textContent = solicitudesSnapshot.size;
+
+    } catch (error) {
+        console.error("Error al actualizar estadísticas:", error);
     }
 }
 
@@ -236,6 +264,7 @@ async function agregarNuevoProducto(event) {
         document.getElementById('nuevo-producto-fecha').valueAsDate = new Date();
         cargarInventarioCompleto();
         verificarStockBajo();
+        actualizarEstadisticas();
     } catch (error) {
         console.error("Error al agregar producto: ", error);
         alert("Hubo un error al guardar el producto.");
@@ -288,6 +317,7 @@ async function agregarEntrada(event) {
         cargarInventarioCompleto();
         cargarHistorialEntradas();
         verificarStockBajo();
+        actualizarEstadisticas();
         
     } catch(error) {
         console.error("Error al registrar entrada: ", error);
@@ -353,6 +383,7 @@ async function agregarSalida(event) {
         cargarRepuestosSalida();
         cargarInventarioCompleto();
         verificarStockBajo();
+        actualizarEstadisticas();
         
     } catch (error) {
         console.error("Error al registrar salida: ", error);
@@ -427,7 +458,7 @@ async function cargarSolicitudesAdmin() {
                 <td>${solicitud.repuesto}</td>
                 <td>${solicitud.cantidad}</td>
                 <td><span class="estado-${solicitud.estado.toLowerCase()}">${solicitud.estado}</span></td>
-                <td class="action-buttons">
+                <td class="action-buttons-table">
                     ${solicitud.estado === 'Pendiente' ? 
                     `<button class="btn btn-success btn-sm" onclick="aceptarSolicitud('${docId}', '${solicitud.repuesto}', ${solicitud.cantidad})">Aceptar</button>
                     <button class="btn btn-danger btn-sm" onclick="rechazarSolicitud('${docId}')">Rechazar</button>`
@@ -483,6 +514,7 @@ async function aceptarSolicitud(solicitudId, nombreRepuesto, cantidad) {
         verificarStockBajo();
         verificarSolicitudesPendientes();
         cargarInventarioCompleto();
+        actualizarEstadisticas();
         
     } catch (error) {
         console.error("Error al aceptar solicitud:", error);
@@ -505,6 +537,7 @@ async function rechazarSolicitud(solicitudId) {
         alert('Solicitud rechazada.');
         cargarSolicitudesAdmin();
         verificarSolicitudesPendientes();
+        actualizarEstadisticas();
         
     } catch (error) {
         console.error("Error al rechazar solicitud:", error);
@@ -631,7 +664,7 @@ async function cargarRepuestosSalida() {
                 <td>${item.cantidad}</td>
                 <td>${item.placa}</td>
                 <td>${item.kilometraje}</td>
-                <td class="action-buttons">
+                <td class="action-buttons-table">
                     <button class="btn btn-warning btn-sm" onclick="actualizarSalida('${doc.id}')">Actualizar</button>
                     <button class="btn btn-danger btn-sm" onclick="eliminarSalida('${doc.id}', '${item.repuesto}', ${item.cantidad})">Eliminar</button>
                 </td>
@@ -710,7 +743,7 @@ async function cargarInventarioCompleto() {
                 <td>S/ ${parseFloat(item.costoUnitario).toFixed(2)}</td>
                 <td>S/ ${parseFloat(item.precioVenta).toFixed(2)}</td>
                 <td>${item.stock}</td>
-                <td class="action-buttons">
+                <td class="action-buttons-table">
                     <button class="btn btn-warning btn-sm" onclick="actualizarProducto('${doc.id}')">Actualizar</button>
                     <button class="btn btn-danger btn-sm" onclick="eliminarProducto('${doc.id}', '${item.nombre}')">Eliminar</button>
                 </td>
@@ -735,6 +768,7 @@ async function eliminarProducto(docId, nombre) {
             alert('Producto eliminado exitosamente.');
             cargarInventarioCompleto();
             verificarStockBajo();
+            actualizarEstadisticas();
         } catch (error) {
             console.error("Error al eliminar producto: ", error);
             alert("Hubo un error al eliminar el producto.");
@@ -806,6 +840,7 @@ async function actualizarProducto(docId) {
         alert(`Producto "${nuevoNombre}" actualizado exitosamente.`);
         cargarInventarioCompleto();
         verificarStockBajo();
+        actualizarEstadisticas();
     } catch (error) {
         console.error("Error al actualizar producto: ", error);
         alert("Hubo un error al actualizar el producto.");
@@ -1050,6 +1085,7 @@ async function eliminarSalida(docId, nombreRepuesto, cantidad) {
             cargarRepuestosSalida();
             cargarInventarioCompleto();
             verificarStockBajo();
+            actualizarEstadisticas();
 
         } catch (error) {
             console.error("Error al eliminar la salida: ", error);

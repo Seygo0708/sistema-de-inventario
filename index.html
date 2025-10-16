@@ -148,13 +148,13 @@
                             <p>Bienvenido al Sistema de Gestión de Inventario</p>
                         </div>
 
-                       <!-- NOTIFICACIONES -->
-            <div id="stock-notification-container" class="notification-container notification-stock-low" style="display: none;">
-     <h4><i class="fas fa-exclamation-triangle"></i> Alertas de Stock Bajo</h4>
-     <ul id="stock-low-list"></ul>
+ <!-- NOTIFICACIONES -->
+<div id="stock-notification-container" class="notification-container notification-stock-low" style="display: none;">
+    <h4><i class="fas fa-exclamation-triangle"></i> Alertas de Stock Bajo</h4>
+    <ul id="stock-low-list"></ul>
 </div>
 
-            <div id="solicitud-notification-container" class="notification-container notification-solicitudes" style="display: none;">
+<div id="solicitud-notification-container" class="notification-container notification-solicitudes" style="display: none;">
     <h4><i class="fas fa-bell"></i> Solicitudes Pendientes</h4>
     <ul id="solicitud-list"></ul>
 </div>
@@ -442,21 +442,26 @@
         <p>Gestionar solicitudes de repuestos del personal mecánico</p>
     </div>
 
-    <!-- FILTRO DE SOLICITUDES -->
-    <div class="sub-section-container">
-        <h4><i class="fas fa-filter"></i> Filtrar Solicitudes</h4>
-        <div class="form-grid">
-            <select id="filtro-solicitudes" class="form-control" onchange="filtrarSolicitudes()">
-                <option value="todas">Todas las Solicitudes</option>
-                <option value="pendientes">Solo Pendientes</option>
-                <option value="aceptadas">Solo Aceptadas (Últimas 10)</option>
-                <option value="rechazadas">Solo Rechazadas (Últimas 10)</option>
-            </select>
-            <button class="btn btn-primary" onclick="cargarSolicitudesAdmin()">
-                <i class="fas fa-sync-alt"></i> Actualizar
+<!-- FILTRO DE SOLICITUDES -->
+<div class="sub-section-container">
+    <h4><i class="fas fa-filter"></i> Filtrar Solicitudes</h4>
+    <div class="filter-buttons-container" style="width: 100%;">
+        <div class="filter-buttons" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; width: 100%;">
+            <button class="btn btn-primary active" onclick="filtrarSolicitudesPorTipo('todas')" id="btn-todas">
+                <i class="fas fa-list"></i> Todas
+            </button>
+            <button class="btn btn-warning" onclick="filtrarSolicitudesPorTipo('pendientes')" id="btn-pendientes">
+                <i class="fas fa-clock"></i> Pendientes
+            </button>
+            <button class="btn btn-success" onclick="filtrarSolicitudesPorTipo('aceptadas')" id="btn-aceptadas">
+                <i class="fas fa-check"></i> Aceptadas
+            </button>
+            <button class="btn btn-danger" onclick="filtrarSolicitudesPorTipo('rechazadas')" id="btn-rechazadas">
+                <i class="fas fa-times"></i> Rechazadas
             </button>
         </div>
     </div>
+</div>
 
     <!-- TABLA DE SOLICITUDES -->
     <div class="sub-section-container full-width">
@@ -523,122 +528,112 @@
                     </div>
 
                     <!-- SECCIÓN REPORTES -->
-                    <div id="apartado-reportes" class="admin-section" style="display: none;">
-                        <div class="section-header">
-                            <h2><i class="fas fa-chart-pie"></i> Reportes y Estadísticas</h2>
-                            <p>Análisis visual de los datos del inventario</p>
-                        </div>
+<div id="apartado-reportes" class="admin-section" style="display: none;">
+    <div class="section-header">
+        <h2><i class="fas fa-chart-pie"></i> Reportes y Estadísticas</h2>
+        <p>Análisis visual de los datos del inventario</p>
+    </div>
 
-                        <!-- FILTROS DE REPORTES -->
-                        <div class="sub-section-container">
-                            <h4><i class="fas fa-filter"></i> Filtros de Reportes</h4>
-                            <div class="form-grid">
-                                <select id="filtro-periodo" class="form-control" onchange="generarReportes()">
-                                    <option value="7">Últimos 7 días</option>
-                                    <option value="30" selected>Últimos 30 días</option>
-                                    <option value="90">Últimos 3 meses</option>
-                                    <option value="365">Último año</option>
-                                    <option value="todo">Todo el historial</option>
-                                </select>
-                                <select id="filtro-tipo-reporte" class="form-control" onchange="generarReportes()">
-                                    <option value="general">Reporte General</option>
-                                    <option value="entradas">Solo Entradas</option>
-                                    <option value="salidas">Solo Salidas</option>
-                                </select>
-                                <button class="btn btn-primary" onclick="generarReportes()">
-                                    <i class="fas fa-sync-alt"></i> Actualizar Reportes
-                                </button>
-                                <button class="btn btn-success" onclick="exportarGraficosPDF()">
-                                    <i class="fas fa-file-pdf"></i> Exportar PDF
-                                </button>
-                            </div>
-                        </div>
+    <!-- FILTROS DE REPORTES -->
+    <div class="sub-section-container">
+        <h4><i class="fas fa-filter"></i> Filtros de Reportes</h4>
+        <div class="form-grid">
+            <select id="filtro-periodo" class="form-control" onchange="generarReportes()">
+                <option value="7">Últimos 7 días</option>
+                <option value="30" selected>Últimos 30 días</option>
+                <option value="90">Últimos 3 meses</option>
+                <option value="365">Último año</option>
+                <option value="todo">Todo el historial</option>
+            </select>
+            <select id="filtro-tipo-reporte" class="form-control" onchange="generarReportes()">
+                <option value="general">Reporte General</option>
+                <option value="entradas">Solo Entradas</option>
+                <option value="salidas">Solo Salidas</option>
+            </select>
+            <button class="btn btn-primary" onclick="generarReportes()">
+                <i class="fas fa-sync-alt"></i> Actualizar Reportes
+            </button>
+            <button class="btn btn-success" onclick="exportarReporteExcel()">
+    <i class="fas fa-file-excel"></i> Exportar Excel
+</button>
+        </div>
+    </div>
 
-                        <!-- GRÁFICOS PRINCIPALES -->
-                        <div class="charts-grid">
-                            <!-- GRÁFICO 1: MOVIMIENTOS POR DÍA -->
-                            <div class="chart-container">
-                                <div class="chart-header">
-                                    <h4><i class="fas fa-chart-line"></i> Movimientos por Día</h4>
-                                    <p>Entradas y salidas diarias</p>
-                                </div>
-                                <div class="chart-wrapper">
-                                    <canvas id="chartMovimientosDia"></canvas>
-                                </div>
-                            </div>
-
-                            <!-- GRÁFICO 2: PRODUCTOS MÁS MOVIMIENTOS -->
-                            <div class="chart-container">
-                                <div class="chart-header">
-                                    <h4><i class="fas fa-chart-bar"></i> Productos con Más Movimientos</h4>
-                                    <p>Top 10 productos más activos</p>
-                                </div>
-                                <div class="chart-wrapper">
-                                    <canvas id="chartProductosMovimientos"></canvas>
-                                </div>
-                            </div>
-
-                            <!-- GRÁFICO 3: DISTRIBUCIÓN DE STOCK -->
-                            <div class="chart-container">
-                                <div class="chart-header">
-                                    <h4><i class="fas fa-chart-pie"></i> Distribución de Stock</h4>
-                                    <p>Estado actual del inventario</p>
-                                </div>
-                                <div class="chart-wrapper">
-                                    <canvas id="chartDistribucionStock"></canvas>
-                                </div>
-                            </div>
-
-                            <!-- GRÁFICO 4: TENDENCIA MENSUAL -->
-                            <div class="chart-container">
-                                <div class="chart-header">
-                                    <h4><i class="fas fa-chart-area"></i> Tendencia Mensual de Movimientos</h4>
-                                    <p>Comparativa mensual de entradas vs salidas</p>
-                                </div>
-                                <div class="chart-wrapper">
-                                    <canvas id="chartTendenciaMensual"></canvas>
-                                </div>
-                            </div>
-
-                            <!-- NUEVO GRÁFICO 5: CLASIFICACIÓN DE SOLICITUDES -->
-                            <div class="chart-container">
-                                <div class="chart-header">
-                                    <h4><i class="fas fa-chart-pie"></i> Clasificación de Solicitudes</h4>
-                                    <p>Resumen de respuestas a solicitudes</p>
-                                </div>
-                                <div class="chart-wrapper">
-                                    <canvas id="chartClasificacionSolicitudes"></canvas>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- ESTADÍSTICAS RESUMEN -->
-                        <div class="stats-summary">
-                            <div class="stat-item">
-                                <div class="stat-value" id="total-entradas">0</div>
-                                <div class="stat-label">Total Entradas</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value" id="total-salidas">0</div>
-                                <div class="stat-label">Total Salidas</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value" id="total-solicitudes">0</div>
-                                <div class="stat-label">Solicitudes</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value" id="productos-activos">0</div>
-                                <div class="stat-label">Productos Activos</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value" id="valor-total">S/ 0.00</div>
-                                <div class="stat-label">Valor Total Inventario</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <!-- GRÁFICOS PRINCIPALES -->
+    <div class="charts-grid">
+        <!-- GRÁFICO 1: MOVIMIENTOS POR DÍA -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h4><i class="fas fa-chart-line"></i> Movimientos por Día</h4>
+                <p>Entradas y salidas diarias</p>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="chartMovimientosDia"></canvas>
             </div>
         </div>
+
+        <!-- GRÁFICO 2: PRODUCTOS MÁS MOVIMIENTOS -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h4><i class="fas fa-chart-bar"></i> Productos con Más Movimientos</h4>
+                <p>Top 10 productos más activos</p>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="chartProductosMovimientos"></canvas>
+            </div>
+        </div>
+
+        <!-- GRÁFICO 3: DISTRIBUCIÓN DE STOCK -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h4><i class="fas fa-chart-pie"></i> Distribución de Stock</h4>
+                <p>Estado actual del inventario</p>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="chartDistribucionStock"></canvas>
+            </div>
+        </div>
+
+        <!-- GRÁFICO 4: TENDENCIA MENSUAL -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h4><i class="fas fa-chart-area"></i> Tendencia Mensual de Movimientos</h4>
+                <p>Comparativa mensual de entradas vs salidas</p>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="chartTendenciaMensual"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ESTADÍSTICAS RESUMEN -->
+    <div class="stats-summary">
+        <div class="stat-item">
+            <div class="stat-value" id="total-entradas">0</div>
+            <div class="stat-label">Total Entradas</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="total-salidas">0</div>
+            <div class="stat-label">Total Salidas</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="total-solicitudes">0</div>
+            <div class="stat-label">Solicitudes</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="productos-activos">0</div>
+            <div class="stat-label">Productos Activos</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="valor-total">S/ 0.00</div>
+            <div class="stat-label">Valor Total Inventario</div>
+        </div>
+    </div>
+</div>
+
+                </div>
+            </div>
+        </div>  
 
         <!-- MECHANIC DASHBOARD -->
         <div id="dashboard-mecanico" class="dashboard" style="display: none;">

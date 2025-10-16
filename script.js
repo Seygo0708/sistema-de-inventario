@@ -139,15 +139,24 @@ function mostrarApartado(nombre) {
             document.getElementById('entrada-fecha').valueAsDate = new Date();
             cargarHistorialEntradas();
             document.getElementById('form-entrada').reset();
-        } else if (nombre === 'solicitudes') {
-            cargarSolicitudesAdmin();
-        } else if (nombre === 'reportes') {
-            // Inicializar reportes si es la primera vez
-            if (Object.keys(chartInstances).length === 0) {
-                inicializarReportes();
-            }
-            generarReportes(); // Generar reportes automáticamente al entrar
-        }
+} else if (nombre === 'solicitudes') {
+    // Reiniciar botones al entrar
+    document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.getElementById('btn-todas').classList.add('active');
+    
+    // Cargar solicitudes inmediatamente
+    cargarSolicitudesAdmin('todas');
+
+} else if (nombre === 'reportes') {
+    // Inicializar reportes si es la primera vez
+    if (Object.keys(chartInstances).length === 0) {
+        inicializarReportes();
+    } else {
+        generarReportes(); // Regenerar con datos actualizados
+    }
+}
     }
 }
 
@@ -460,20 +469,22 @@ async function cargarSolicitudesAdmin() {
     try {
         let query = db.collection('solicitudesRepuestos').orderBy('fecha', 'desc');
         
-        // Aplicar filtro según selección
+        // Aplicar filtro según selección - CORREGIDO
         if (filtro === 'pendientes') {
             query = query.where('estado', '==', 'Pendiente');
         } else if (filtro === 'aceptadas') {
-            query = query.where('estado', '==', 'Aceptada').limit(10);
+            query = query.where('estado', '==', 'Aceptada');
         } else if (filtro === 'rechazadas') {
-            query = query.where('estado', 'in', ['Rechazada', 'Rechazada - No Existe', 'Rechazada - Stock Insuficiente']).limit(10);
+            // Para filtrar múltiples estados de rechazo
+            query = query.where('estado', 'in', ['Rechazada', 'Rechazada - No Existe', 'Rechazada - Stock Insuficiente']);
         }
+        // Para "todas" no aplicamos ningún filtro where
         
         const querySnapshot = await query.get();
         tbody.innerHTML = '';
 
         if (querySnapshot.empty) {
-            tbody.innerHTML = '<tr><td colspan="6">No hay solicitudes ' + obtenerTextoFiltro(filtro) + '.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="6">No hay solicitudes ${obtenerTextoFiltro(filtro)}.</td></tr>`;
             return;
         }
 
@@ -481,6 +492,7 @@ async function cargarSolicitudesAdmin() {
             const solicitud = doc.data();
             const docId = doc.id;
             const tr = document.createElement('tr');
+            
             tr.innerHTML = `
                 <td>${solicitud.fecha}</td>
                 <td>${solicitud.mecanico}</td>
@@ -494,137 +506,18 @@ async function cargarSolicitudesAdmin() {
                     </button>
                     <button class="btn-icon btn-icon-reject" onclick="rechazarSolicitud('${docId}')" title="Rechazar solicitud">
                         <i class="fas fa-times"></i>
-                    </button>`
-                    : '<span class="text-muted">-</span>'}
+                    </button>` : 
+                    `<button class="btn-icon btn-icon-delete" onclick="eliminarSolicitudIndividual('${docId}')" title="Eliminar solicitud">
+                        <i class="fas fa-trash"></i>
+                    </button>`}
                 </td>
             `;
             tbody.appendChild(tr);
         });
+        
     } catch (error) {
         console.error("Error al cargar solicitudes:", error);
         tbody.innerHTML = '<tr><td colspan="6">Error al cargar datos.</td></tr>';
-    }
-}
-
-async function aceptarSolicitud(solicitudId, nombreRepuesto, cantidad) {
-    if (!db) {
-        console.error("Firestore no está inicializado (aceptarSolicitud)");
-        alert("El sistema no está listo. Intente nuevamente.");
-        return;
-    }
-
-    try {
-        const querySnapshot = await db.collection('inventario').where('nombre', '==', nombreRepuesto).get();
-
-        if (querySnapshot.empty) {
-            alert(`El repuesto "${nombreRepuesto}" no se encuentra en el inventario. Por favor, añádalo primero.`);
-            await db.collection('solicitudesRepuestos').doc(solicitudId).update({ estado: 'Rechazada - No Existe' });
-            cargarSolicitudesAdmin();
-            return;
-        }
-
-        const productoDoc = querySnapshot.docs[0];
-        const productoData = productoDoc.data();
-
-        if (productoData.stock < cantidad) {
-            alert(`Stock insuficiente para "${nombreRepuesto}". Stock actual: ${productoData.stock}. La solicitud será rechazada.`);
-            await db.collection('solicitudesRepuestos').doc(solicitudId).update({ estado: 'Rechazada - Stock Insuficiente' });
-            cargarSolicitudesAdmin();
-            return;
-        }
-
-        // Si el stock es suficiente, actualizamos el inventario y la solicitud
-        await db.collection('inventario').doc(productoDoc.id).update({
-            stock: firebase.firestore.FieldValue.increment(-cantidad)
-        });
-
-        await db.collection('solicitudesRepuestos').doc(solicitudId).update({
-            estado: 'Aceptada'
-        });
-
-        alert(`Solicitud de ${nombreRepuesto} aceptada. Se ha descontado ${cantidad} unidad(es) del stock.`);
-        cargarSolicitudesAdmin();
-        verificarStockBajo();
-        verificarSolicitudesPendientes();
-        cargarInventarioCompleto();
-        actualizarEstadisticas();
-        
-    } catch (error) {
-        console.error("Error al aceptar solicitud:", error);
-        alert("Hubo un error al procesar la solicitud.");
-    }
-}
-
-async function rechazarSolicitud(solicitudId) {
-    if (!db) {
-        console.error("Firestore no está inicializado (rechazarSolicitud)");
-        alert("El sistema no está listo. Intente nuevamente.");
-        return;
-    }
-
-    try {
-        await db.collection('solicitudesRepuestos').doc(solicitudId).update({
-            estado: 'Rechazada'
-        });
-
-        alert('Solicitud rechazada.');
-        cargarSolicitudesAdmin();
-        verificarSolicitudesPendientes();
-        actualizarEstadisticas();
-        
-    } catch (error) {
-        console.error("Error al rechazar solicitud:", error);
-        alert("Hubo un error al rechazar la solicitud.");
-    }
-}
-
-async function verificarSolicitudesPendientes() {
-    if (isCheckingSolicitudes) {
-        console.log("Ya se están verificando las solicitudes. Ignorando llamada duplicada.");
-        return;
-    }
-    
-    isCheckingSolicitudes = true;
-    
-    const solicitudList = document.getElementById('solicitud-list');
-    const notificationContainer = document.getElementById('solicitud-notification-container');
-    
-    solicitudList.innerHTML = '';
-    notificationContainer.style.display = 'none';
-
-    if (!db) {
-        console.error("Firestore no está inicializado (verificarSolicitudesPendientes)");
-        isCheckingSolicitudes = false;
-        return;
-    }
-
-    try {
-        const querySnapshot = await db.collection('solicitudesRepuestos').where('estado', '==', 'Pendiente').get();
-        let solicitudesPendientes = [];
-
-        querySnapshot.forEach(doc => {
-            const solicitud = doc.data();
-            solicitudesPendientes.push({
-                repuesto: solicitud.repuesto,
-                cantidad: solicitud.cantidad
-            });
-        });
-
-        if (solicitudesPendientes.length > 0) {
-            solicitudesPendientes.forEach(solicitud => {
-                const li = document.createElement('li');
-                li.textContent = `- ${solicitud.repuesto} (Cantidad: ${solicitud.cantidad})`;
-                solicitudList.appendChild(li);
-            });
-            notificationContainer.style.display = 'block';
-        } else {
-            notificationContainer.style.display = 'none';
-        }
-
-    } catch (error) {
-        console.error("Error al verificar solicitudes pendientes:", error);
-    } finally {
-        isCheckingSolicitudes = false;
     }
 }
 
@@ -1085,6 +978,64 @@ async function verificarStockBajo() {
         isCheckingStock = false;
     }
 }
+
+// --- FUNCIÓN PARA VERIFICAR SOLICITUDES PENDIENTES ---
+async function verificarSolicitudesPendientes() {
+    if (isCheckingSolicitudes) {
+        console.log("Ya se están verificando las solicitudes. Ignorando llamada duplicada.");
+        return;
+    }
+    
+    isCheckingSolicitudes = true;
+    
+    const solicitudList = document.getElementById('solicitud-list');
+    const notificationContainer = document.getElementById('solicitud-notification-container');
+    
+    // Limpiar la lista primero
+    if (solicitudList) {
+        solicitudList.innerHTML = '';
+    }
+    
+    if (notificationContainer) {
+        notificationContainer.style.display = 'none';
+    }
+
+    if (!db) {
+        console.error("Firestore no está inicializado (verificarSolicitudesPendientes)");
+        isCheckingSolicitudes = false;
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('solicitudesRepuestos').where('estado', '==', 'Pendiente').get();
+        let solicitudesPendientes = [];
+
+        querySnapshot.forEach(doc => {
+            const solicitud = doc.data();
+            solicitudesPendientes.push({
+                repuesto: solicitud.repuesto,
+                cantidad: solicitud.cantidad
+            });
+        });
+
+        if (solicitudesPendientes.length > 0 && solicitudList && notificationContainer) {
+            solicitudesPendientes.forEach(solicitud => {
+                const li = document.createElement('li');
+                li.textContent = `- ${solicitud.repuesto} (Cantidad: ${solicitud.cantidad})`;
+                solicitudList.appendChild(li);
+            });
+            notificationContainer.style.display = 'block';
+        } else if (notificationContainer) {
+            notificationContainer.style.display = 'none';
+        }
+
+    } catch (error) {
+        console.error("Error al verificar solicitudes pendientes:", error);
+    } finally {
+        isCheckingSolicitudes = false;
+    }
+}
+
 // --- FUNCIONES NUEVAS PARA LA TABLA DE ENTRADAS ---
 async function actualizarEntrada(docId) {
     if (!db) {
@@ -1346,62 +1297,135 @@ async function actualizarSalida(docId) {
         
         const salida = docSnap.data();
 
+        // Solicitar nuevos valores para todos los campos
+        const nuevaFecha = prompt(`Actualizar fecha (actual: ${salida.fecha}):`, salida.fecha);
+        if (nuevaFecha === null || nuevaFecha.trim() === '') {
+            alert('Actualización cancelada. La fecha no puede estar vacía.');
+            return;
+        }
+
+        const nuevoRepuesto = prompt(`Actualizar repuesto (actual: ${salida.repuesto}):`, salida.repuesto);
+        if (nuevoRepuesto === null || nuevoRepuesto.trim() === '') {
+            alert('Actualización cancelada. El repuesto no puede estar vacío.');
+            return;
+        }
+
+        const nuevoCliente = prompt(`Actualizar cliente (actual: ${salida.cliente}):`, salida.cliente);
+        if (nuevoCliente === null || nuevoCliente.trim() === '') {
+            alert('Actualización cancelada. El cliente no puede estar vacío.');
+            return;
+        }
+
+        const nuevoNumeroOT = prompt(`Actualizar N° OT (actual: ${salida.numeroOT}):`, salida.numeroOT);
+        if (nuevoNumeroOT === null || nuevoNumeroOT.trim() === '') {
+            alert('Actualización cancelada. El N° OT no puede estar vacío.');
+            return;
+        }
+
         const nuevaCantidad = prompt(`Actualizar cantidad (actual: ${salida.cantidad}):`, salida.cantidad);
-        if (nuevaCantidad === null || isNaN(parseInt(nuevaCantidad))) {
-            alert('Actualización cancelada o cantidad no válida.');
+        if (nuevaCantidad === null || isNaN(parseInt(nuevaCantidad)) || parseInt(nuevaCantidad) <= 0) {
+            alert('Actualización cancelada. La cantidad debe ser un número válido mayor a 0.');
             return;
         }
         const cantidadInt = parseInt(nuevaCantidad);
 
-        const nuevoCliente = prompt(`Actualizar nombre del cliente (actual: ${salida.cliente}):`, salida.cliente);
-        if (nuevoCliente === null || nuevoCliente.trim() === '') {
+        const nuevaPlaca = prompt(`Actualizar placa (actual: ${salida.placa || 'N/A'}):`, salida.placa || '');
+        if (nuevaPlaca === null) {
             alert('Actualización cancelada.');
             return;
         }
+
+        const nuevoKilometraje = prompt(`Actualizar kilometraje (actual: ${salida.kilometraje || 'N/A'}):`, salida.kilometraje || '');
+        if (nuevoKilometraje === null) {
+            alert('Actualización cancelada.');
+            return;
+        }
+        const kilometrajeInt = nuevoKilometraje.trim() === '' ? 0 : parseInt(nuevoKilometraje);
+
+        // Si cambió el repuesto o la cantidad, necesitamos verificar el inventario
+        if (nuevoRepuesto !== salida.repuesto || cantidadInt !== salida.cantidad) {
+            // Buscar el nuevo repuesto en inventario
+            const nuevoRepuestoQuery = await db.collection('inventario').where('nombre', '==', nuevoRepuesto.trim().toUpperCase()).get();
+            
+            if (nuevoRepuestoQuery.empty) {
+                alert(`El nuevo repuesto "${nuevoRepuesto}" no existe en el inventario.`);
+                return;
+            }
+            
+            const nuevoRepuestoData = nuevoRepuestoQuery.docs[0].data();
+            
+            // Si es el mismo repuesto pero cambió la cantidad
+            if (nuevoRepuesto === salida.repuesto) {
+                const diferencia = cantidadInt - salida.cantidad;
+                
+                if (diferencia > 0) {
+                    // Si aumentó la cantidad, verificar stock suficiente
+                    if (nuevoRepuestoData.stock < diferencia) {
+                        alert(`Stock insuficiente para aumentar la cantidad. Stock actual: ${nuevoRepuestoData.stock}`);
+                        return;
+                    }
+                    
+                    // Restar la diferencia del inventario
+                    await db.collection('inventario').doc(nuevoRepuestoQuery.docs[0].id).update({
+                        stock: firebase.firestore.FieldValue.increment(-diferencia)
+                    });
+                } else if (diferencia < 0) {
+                    // Si disminuyó la cantidad, agregar la diferencia al inventario
+                    await db.collection('inventario').doc(nuevoRepuestoQuery.docs[0].id).update({
+                        stock: firebase.firestore.FieldValue.increment(Math.abs(diferencia))
+                    });
+                }
+            } else {
+                // Si cambió el repuesto, revertir el stock del repuesto anterior y descontar del nuevo
+                
+                // 1. Revertir stock del repuesto anterior
+                const repuestoAnteriorQuery = await db.collection('inventario').where('nombre', '==', salida.repuesto).get();
+                if (!repuestoAnteriorQuery.empty) {
+                    await db.collection('inventario').doc(repuestoAnteriorQuery.docs[0].id).update({
+                        stock: firebase.firestore.FieldValue.increment(salida.cantidad)
+                    });
+                }
+                
+                // 2. Verificar stock del nuevo repuesto
+                if (nuevoRepuestoData.stock < cantidadInt) {
+                    alert(`Stock insuficiente del nuevo repuesto. Stock actual: ${nuevoRepuestoData.stock}`);
+                    
+                    // Revertir el revertido si falla
+                    if (!repuestoAnteriorQuery.empty) {
+                        await db.collection('inventario').doc(repuestoAnteriorQuery.docs[0].id).update({
+                            stock: firebase.firestore.FieldValue.increment(-salida.cantidad)
+                        });
+                    }
+                    return;
+                }
+                
+                // 3. Descontar del nuevo repuesto
+                await db.collection('inventario').doc(nuevoRepuestoQuery.docs[0].id).update({
+                    stock: firebase.firestore.FieldValue.increment(-cantidadInt)
+                });
+            }
+        }
         
+        // Actualizar el registro de salida
         await docRef.update({
+            fecha: nuevaFecha.trim(),
+            repuesto: nuevoRepuesto.trim().toUpperCase(),
+            cliente: nuevoCliente.trim(),
+            numeroOT: nuevoNumeroOT.trim(),
             cantidad: cantidadInt,
-            cliente: nuevoCliente.trim()
+            placa: nuevaPlaca.trim(),
+            kilometraje: kilometrajeInt
         });
         
-        alert(`Salida de ${salida.repuesto} actualizada exitosamente.`);
-        cargarRepuestosSalida(); 
+        alert(`Salida actualizada exitosamente.\n\nRepuesto: ${nuevoRepuesto}\nCliente: ${nuevoCliente}\nN° OT: ${nuevoNumeroOT}\nCantidad: ${cantidadInt}\nPlaca: ${nuevaPlaca || 'N/A'}\nKilometraje: ${kilometrajeInt || 'N/A'}`);
+        cargarRepuestosSalida();
+        cargarInventarioCompleto();
+        verificarStockBajo();
+        actualizarEstadisticas();
 
     } catch (error) {
         console.error("Error al actualizar la salida: ", error);
         alert("Hubo un error al actualizar el registro de salida.");
-    }
-}
-
-async function eliminarSalida(docId, nombreRepuesto, cantidad) {
-    if (confirm(`¿Estás seguro de que quieres eliminar la salida de ${cantidad} unidades de "${nombreRepuesto}"?`)) {
-        if (!db) {
-            console.error("Firestore no está inicializado (eliminarSalida)");
-            alert("El sistema no está listo. Intente nuevamente.");
-            return;
-        }
-
-        try {
-            const inventarioQuery = await db.collection('inventario').where('nombre', '==', nombreRepuesto).limit(1).get();
-            if (!inventarioQuery.empty) {
-                const productoDoc = inventarioQuery.docs[0];
-                await db.collection('inventario').doc(productoDoc.id).update({
-                    stock: firebase.firestore.FieldValue.increment(cantidad)
-                });
-            }
-            
-            await db.collection('repuestosSalida').doc(docId).delete();
-            
-            alert('Salida eliminada exitosamente y stock restablecido.');
-            cargarRepuestosSalida();
-            cargarInventarioCompleto();
-            verificarStockBajo();
-            actualizarEstadisticas();
-
-        } catch (error) {
-            console.error("Error al eliminar la salida: ", error);
-            alert("Hubo un error al eliminar el registro de salida.");
-        }
     }
 }
 
@@ -1477,127 +1501,217 @@ function getChartOptions(title, yAxisLabel, isMultiLine = false) {
     };
 }
 
-// ====== FUNCIÓN CORREGIDA PARA EXPORTAR GRÁFICOS COMO PDF ======
-async function exportarGraficosPDF() {
-    alert("Generando PDF con los gráficos... Esto puede tardar unos segundos.");
+// ====== VERSIÓN ALTERNATIVA MÁS SIMPLE ======
+async function exportarReporteExcel() {
+    alert("Generando reporte en Excel... Esto puede tardar unos segundos.");
     
+    if (!db) {
+        alert("El sistema no está listo para exportar. Intente nuevamente.");
+        return;
+    }
+
     try {
-        const graficos = [
-            { id: 'chartMovimientosDia', nombre: 'Movimientos por Día' },
-            { id: 'chartProductosMovimientos', nombre: 'Productos con Más Movimientos' },
-            { id: 'chartDistribucionStock', nombre: 'Distribución de Stock' },
-            { id: 'chartTendenciaMensual', nombre: 'Tendencia Mensual de Movimientos' },
-            { id: 'chartClasificacionSolicitudes', nombre: 'Clasificación de Solicitudes' }
+        // Crear un nuevo workbook
+        const wb = XLSX.utils.book_new();
+        
+        // Obtener datos de todas las colecciones
+        const [inventarioSnapshot, entradasSnapshot, salidasSnapshot, solicitudesSnapshot] = await Promise.all([
+            db.collection('inventario').get(),
+            db.collection('historialEntradas').get(),
+            db.collection('repuestosSalida').get(),
+            db.collection('solicitudesRepuestos').get()
+        ]);
+
+        // ====== HOJA 1: RESUMEN EJECUTIVO ======
+        const datosResumen = [
+            ['REPORTE DE INVENTARIO - RESUMEN EJECUTIVO'],
+            ['Generado:', new Date().toLocaleDateString('es-ES')],
+            [''],
+            ['ESTADÍSTICAS PRINCIPALES'],
+            ['Total Productos en Inventario:', inventarioSnapshot.size],
+            ['Productos con Stock Bajo:', inventarioSnapshot.docs.filter(doc => doc.data().stock <= 5).length],
+            ['Total Entradas Registradas:', entradasSnapshot.size],
+            ['Total Salidas Registradas:', salidasSnapshot.size],
+            ['Solicitudes Pendientes:', solicitudesSnapshot.docs.filter(doc => doc.data().estado === 'Pendiente').length],
+            [''],
+            ['VALOR TOTAL DEL INVENTARIO'],
+            ['Valor en Stock (S/):', inventarioSnapshot.docs.reduce((sum, doc) => {
+                const item = doc.data();
+                return sum + (item.stock * parseFloat(item.costoUnitario || 0));
+            }, 0).toFixed(2)]
         ];
+
+        const wsResumen = XLSX.utils.aoa_to_sheet(datosResumen);
         
-        // Crear contenedor temporal optimizado
-        const contenedorTemporal = document.createElement('div');
-        contenedorTemporal.style.cssText = `
-            position: absolute;
-            left: -9999px;
-            width: 794px;
-            padding: 15px;
-            background: white;
-            font-family: Arial, sans-serif;
-        `;
-        document.body.appendChild(contenedorTemporal);
-        
-        // Header del reporte
-        const header = document.createElement('div');
-        header.innerHTML = `
-            <h1 style="text-align: center; color: #4361ee; margin: 0 0 5px 0; font-size: 22px; font-weight: bold;">
-                REPORTE DE GRÁFICOS - SISTEMA DE INVENTARIO
-            </h1>
-            <div style="text-align: center; color: #666; margin-bottom: 15px; font-size: 12px; font-weight: bold;">
-                Generado el: ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}
-            </div>
-        `;
-        contenedorTemporal.appendChild(header);
-        
-        // Grid de gráficos 2x3
-        const grid = document.createElement('div');
-        grid.style.cssText = `
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 15px;
-        `;
-        
-        // Procesar cada gráfico
-        graficos.forEach(grafico => {
-            const canvas = document.getElementById(grafico.id);
-            if (!canvas) return;
-            
-            const card = document.createElement('div');
-            card.style.cssText = `
-                background: #f8f9fa;
-                padding: 10px;
-                border-radius: 6px;
-                border: 1px solid #dee2e6;
-                text-align: center;
-            `;
-            
-            card.innerHTML = `
-                <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; height: 35px; display: flex; align-items: center; justify-content: center;">
-                    ${grafico.nombre}
-                </div>
-                <img src="${canvas.toDataURL('image/png')}" 
-                     style="width: 100%; height: 160px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; background: white;">
-            `;
-            
-            grid.appendChild(card);
+        // Formato de la hoja de resumen
+        wsResumen['!cols'] = [
+            { width: 30 },
+            { width: 20 }
+        ];
+
+        // ====== HOJA 2: INVENTARIO COMPLETO ======
+        const datosInventario = [
+            ['INVENTARIO COMPLETO'],
+            ['Fecha', 'Código', 'Nombre', 'Lote', 'Costo Unitario (S/.)', 'Precio Venta (S/.)', 'Stock', 'Valor Total (S/.)']
+        ];
+
+        inventarioSnapshot.forEach(doc => {
+            const item = doc.data();
+            const valorTotal = (item.stock * parseFloat(item.costoUnitario || 0)).toFixed(2);
+            datosInventario.push([
+                item.fechaActualizacion || 'N/A',
+                item.codigo,
+                item.nombre,
+                item.lote || 'N/A',
+                parseFloat(item.costoUnitario).toFixed(2),
+                parseFloat(item.precioVenta).toFixed(2),
+                item.stock,
+                valorTotal
+            ]);
         });
+
+        const wsInventario = XLSX.utils.aoa_to_sheet(datosInventario);
+
+        // ====== HOJA 3: MOVIMIENTOS ======
+        const datosMovimientos = [
+            ['REGISTRO DE MOVIMIENTOS'],
+            ['Tipo', 'Fecha', 'Producto/Repuesto', 'Cantidad', 'Cliente/Proveedor', 'N° OT', 'Detalles']
+        ];
+
+        // Agregar entradas
+        entradasSnapshot.forEach(doc => {
+            const item = doc.data();
+            datosMovimientos.push([
+                'ENTRADA',
+                item.fecha,
+                item.nombre,
+                item.cantidad,
+                'PROVEEDOR',
+                'N/A',
+                `Código: ${item.codigo}`
+            ]);
+        });
+
+        // Agregar salidas
+        salidasSnapshot.forEach(doc => {
+            const item = doc.data();
+            datosMovimientos.push([
+                'SALIDA',
+                item.fecha,
+                item.repuesto,
+                item.cantidad,
+                item.cliente,
+                item.numeroOT,
+                `Placa: ${item.placa || 'N/A'}, KM: ${item.kilometraje || 'N/A'}`
+            ]);
+        });
+
+        const wsMovimientos = XLSX.utils.aoa_to_sheet(datosMovimientos);
+
+        // ====== HOJA 4: SOLICITUDES ======
+        const datosSolicitudes = [
+            ['SOLICITUDES DE REPUESTOS'],
+            ['Fecha', 'Mecánico', 'Repuesto', 'Cantidad', 'Estado', 'Código']
+        ];
+
+        solicitudesSnapshot.forEach(doc => {
+            const solicitud = doc.data();
+            datosSolicitudes.push([
+                solicitud.fecha,
+                solicitud.mecanico,
+                solicitud.repuesto,
+                solicitud.cantidad,
+                solicitud.estado,
+                solicitud.codigo || 'N/A'
+            ]);
+        });
+
+        const wsSolicitudes = XLSX.utils.aoa_to_sheet(datosSolicitudes);
+
+        // ====== HOJA 5: ANÁLISIS DE STOCK ======
+        const datosAnalisis = [
+            ['ANÁLISIS DE STOCK'],
+            ['Categoría', 'Cantidad', 'Porcentaje'],
+            ['Stock Crítico (≤ 2)', 0, '0%'],
+            ['Stock Bajo (3-5)', 0, '0%'],
+            ['Stock Normal (6-20)', 0, '0%'],
+            ['Stock Alto (>20)', 0, '0%']
+        ];
+
+        // Calcular categorías de stock
+        let stockCritico = 0, stockBajo = 0, stockNormal = 0, stockAlto = 0;
         
-        contenedorTemporal.appendChild(grid);
+        inventarioSnapshot.forEach(doc => {
+            const stock = doc.data().stock;
+            if (stock <= 2) stockCritico++;
+            else if (stock <= 5) stockBajo++;
+            else if (stock <= 20) stockNormal++;
+            else stockAlto++;
+        });
+
+        const totalProductos = inventarioSnapshot.size;
         
-        // Footer
-        const footer = document.createElement('div');
-        footer.style.cssText = `
-            padding: 10px;
-            background: #e9ecef;
-            border-radius: 6px;
-            border: 1px solid #ced4da;
-            font-size: 11px;
-            color: #495057;
-            text-align: center;
-        `;
-        footer.innerHTML = `
-            <strong>Sistema de Gestión de Inventario</strong> | 
-            Generado automáticamente | 
-            ${new Date().getFullYear()}
-        `;
-        contenedorTemporal.appendChild(footer);
+        datosAnalisis[2][1] = stockCritico;
+        datosAnalisis[2][2] = ((stockCritico / totalProductos) * 100).toFixed(1) + '%';
         
-        // Configuración PDF
-        const opciones = {
-            margin: [5, 5, 5, 5],
-            filename: `reporte_graficos_${new Date().toISOString().split('T')[0]}.pdf`,
-            image: { type: 'jpeg', quality: 0.95 },
-            html2canvas: { 
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                width: 794,
-                height: contenedorTemporal.scrollHeight
-            },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
+        datosAnalisis[3][1] = stockBajo;
+        datosAnalisis[3][2] = ((stockBajo / totalProductos) * 100).toFixed(1) + '%';
         
-        // Generar PDF
-        await html2pdf().set(opciones).from(contenedorTemporal).save();
+        datosAnalisis[4][1] = stockNormal;
+        datosAnalisis[4][2] = ((stockNormal / totalProductos) * 100).toFixed(1) + '%';
         
-        // Limpiar
-        document.body.removeChild(contenedorTemporal);
+        datosAnalisis[5][1] = stockAlto;
+        datosAnalisis[5][2] = ((stockAlto / totalProductos) * 100).toFixed(1) + '%';
+
+        const wsAnalisis = XLSX.utils.aoa_to_sheet(datosAnalisis);
+
+        // ====== AGREGAR HOJAS AL WORKBOOK ======
+        XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen Ejecutivo');
+        XLSX.utils.book_append_sheet(wb, wsInventario, 'Inventario Completo');
+        XLSX.utils.book_append_sheet(wb, wsMovimientos, 'Movimientos');
+        XLSX.utils.book_append_sheet(wb, wsSolicitudes, 'Solicitudes');
+        XLSX.utils.book_append_sheet(wb, wsAnalisis, 'Análisis Stock');
+
+        // ====== GENERAR ARCHIVO ======
+        const fecha = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `Reporte_Inventario_${fecha}.xlsx`);
         
-        alert("✅ PDF generado exitosamente! Todos los gráficos en una sola hoja.");
-        
+        alert("✅ Reporte de Excel generado exitosamente!\n\nEl archivo contiene:\n• Resumen Ejecutivo\n• Inventario Completo\n• Movimientos\n• Solicitudes\n• Análisis de Stock");
+
     } catch (error) {
-        console.error("Error al generar PDF:", error);
-        alert("❌ Error al generar el PDF. Verifique su conexión.");
+        console.error("Error al generar reporte Excel:", error);
+        alert("❌ Error al generar el reporte de Excel. Por favor, intente nuevamente.");
     }
 }
 
-// Función principal para generar reportes
+// Función para calcular fecha límite según período
+// ====== FUNCIÓN CORREGIDA PARA CALCULAR FECHA LÍMITE ======
+function calcularFechaLimite(periodo) {
+    if (periodo === 'todo') return null;
+    
+    const fecha = new Date();
+    
+    switch(periodo) {
+        case '7': // Últimos 7 días
+            fecha.setDate(fecha.getDate() - 7);
+            break;
+        case '30': // Últimos 30 días (1 mes)
+            fecha.setDate(fecha.getDate() - 30);
+            break;
+        case '90': // Últimos 90 días (3 meses)
+            fecha.setDate(fecha.getDate() - 90);
+            break;
+        case '365': // Últimos 365 días (1 año)
+            fecha.setDate(fecha.getDate() - 365);
+            break;
+        default:
+            return null;
+    }
+    
+    return fecha;
+}
+
+// ====== FUNCIÓN CORREGIDA PARA GENERAR REPORTES ======
 async function generarReportes() {
     if (!db) {
         console.error("Firestore no está inicializado");
@@ -1619,30 +1733,31 @@ async function generarReportes() {
         // Filtrar datos por período
         const fechaLimite = calcularFechaLimite(periodo);
         
-        const entradasFiltradas = entradasData.docs.filter(doc => 
-            !fechaLimite || new Date(doc.data().fecha) >= fechaLimite
-        );
+        const entradasFiltradas = entradasData.docs.filter(doc => {
+            if (!fechaLimite) return true;
+            const fechaDoc = new Date(doc.data().fecha + 'T00:00:00');
+            return fechaDoc >= fechaLimite;
+        });
         
-        const salidasFiltradas = salidasData.docs.filter(doc => 
-            !fechaLimite || new Date(doc.data().fecha) >= fechaLimite
-        );
-        
-        const solicitudesFiltradas = solicitudesData.docs.filter(doc => 
-            !fechaLimite || new Date(doc.data().fecha) >= fechaLimite
-        );
+        const salidasFiltradas = salidasData.docs.filter(doc => {
+            if (!fechaLimite) return true;
+            const fechaDoc = new Date(doc.data().fecha + 'T00:00:00');
+            return fechaDoc >= fechaLimite;
+        });
 
-        // Generar todos los gráficos (incluyendo el nuevo)
+        console.log(`Período: ${periodo}, Entradas: ${entradasFiltradas.length}, Salidas: ${salidasFiltradas.length}`);
+
+        // Generar los 4 gráficos restantes
         generarGraficoMovimientosDia(entradasFiltradas, salidasFiltradas);
         generarGraficoProductosMovimientos(entradasFiltradas, salidasFiltradas);
         generarGraficoDistribucionStock(inventarioData);
         generarGraficoTendenciaMensual(entradasFiltradas, salidasFiltradas);
-        generarGraficoClasificacionSolicitudes(solicitudesFiltradas);
         
         // Actualizar estadísticas resumen
         actualizarEstadisticasResumen(
             entradasFiltradas, 
             salidasFiltradas, 
-            solicitudesFiltradas, 
+            solicitudesData.docs, 
             inventarioData
         );
 
@@ -1652,14 +1767,44 @@ async function generarReportes() {
     }
 }
 
-// Función para calcular fecha límite según período
-function calcularFechaLimite(periodo) {
-    if (periodo === 'todo') return null;
+// ====== INICIALIZAR GRÁFICOS AL ENTRAR A REPORTES ======
+function inicializarReportes() {
+    // Solo inicializar si no existen
+    if (Object.keys(chartInstances).length === 0) {
+        const chartsConfig = {
+            'chartMovimientosDia': { type: 'line' },
+            'chartProductosMovimientos': { type: 'bar' },
+            'chartDistribucionStock': { type: 'pie' },
+            'chartTendenciaMensual': { type: 'line' }
+        };
+
+        Object.keys(chartsConfig).forEach(chartId => {
+            const canvas = document.getElementById(chartId);
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                chartInstances[chartId] = new Chart(ctx, {
+                    type: chartsConfig[chartId].type,
+                    data: { labels: [], datasets: [] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top',
+                                labels: {
+                                    font: { 
+                                        size: 11 
+                                    }
+                               }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    }
     
-    const dias = parseInt(periodo);
-    const fecha = new Date();
-    fecha.setDate(fecha.getDate() - dias);
-    return fecha;
+    // Generar reportes automáticamente
+    generarReportes();
 }
 
 // Gráfico 1: Movimientos por día
@@ -1939,6 +2084,717 @@ function obtenerTextoFiltro(filtro) {
 // Función para filtrar solicitudes
 function filtrarSolicitudes() {
     cargarSolicitudesAdmin();
+}
+
+// ====== FUNCIONES PARA ELIMINACIÓN MÚLTIPLE DE SOLICITUDES ======
+
+// Variables globales para gestión de selección múltiple
+let modoEliminacionMultiple = false;
+let solicitudesSeleccionadas = new Set();
+
+// Función para mostrar/ocultar opciones de eliminación múltiple
+function mostrarOpcionesEliminar() {
+    modoEliminacionMultiple = true;
+    document.getElementById('columna-seleccion').style.display = 'table-cell';
+    document.getElementById('btn-eliminar-multiples').style.display = 'none';
+    document.getElementById('btn-cancelar-eliminar').style.display = 'inline-block';
+    
+    // Mostrar checkboxes en todas las filas
+    const filas = document.querySelectorAll('#tabla-solicitudes tbody tr');
+    filas.forEach(fila => {
+        if (!fila.querySelector('.checkbox-seleccion')) {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'checkbox-seleccion';
+            checkbox.onchange = function() {
+                toggleSeleccionSolicitud(this);
+            };
+            
+            const celda = document.createElement('td');
+            celda.style.display = 'table-cell';
+            celda.appendChild(checkbox);
+            fila.insertBefore(celda, fila.firstChild);
+        }
+    });
+}
+
+function ocultarOpcionesEliminar() {
+    modoEliminacionMultiple = false;
+    solicitudesSeleccionadas.clear();
+    document.getElementById('columna-seleccion').style.display = 'none';
+    document.getElementById('btn-eliminar-multiples').style.display = 'inline-block';
+    document.getElementById('btn-cancelar-eliminar').style.display = 'none';
+    document.getElementById('select-all').checked = false;
+    
+    // Ocultar y remover checkboxes
+    const checkboxes = document.querySelectorAll('.checkbox-seleccion');
+    checkboxes.forEach(checkbox => {
+        checkbox.parentElement.remove();
+    });
+}
+
+// Función para seleccionar/deseleccionar todas las solicitudes
+function seleccionarTodos(checkbox) {
+    const checkboxes = document.querySelectorAll('.checkbox-seleccion');
+    checkboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+        toggleSeleccionSolicitud(cb);
+    });
+}
+
+// Función para manejar la selección individual
+function toggleSeleccionSolicitud(checkbox) {
+    const fila = checkbox.closest('tr');
+    const docId = fila.getAttribute('data-doc-id');
+    
+    if (checkbox.checked) {
+        solicitudesSeleccionadas.add(docId);
+        fila.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+    } else {
+        solicitudesSeleccionadas.delete(docId);
+        fila.style.backgroundColor = '';
+        document.getElementById('select-all').checked = false;
+    }
+    
+    // Actualizar contador en el botón
+    const btnEliminar = document.getElementById('btn-eliminar-multiples');
+    if (btnEliminar) {
+        if (solicitudesSeleccionadas.size > 0) {
+            btnEliminar.innerHTML = `<i class="fas fa-trash"></i> Eliminar (${solicitudesSeleccionadas.size})`;
+        } else {
+            btnEliminar.innerHTML = `<i class="fas fa-trash"></i> Eliminar Seleccionadas`;
+        }
+    }
+}
+
+// Función para eliminar múltiples solicitudes
+async function eliminarSolicitudesMultiples() {
+    if (solicitudesSeleccionadas.size === 0) {
+        alert('Por favor, selecciona al menos una solicitud para eliminar.');
+        return;
+    }
+    
+    const confirmacion = confirm(`¿Estás seguro de que quieres eliminar ${solicitudesSeleccionadas.size} solicitud(es)? Esta acción no se puede deshacer.`);
+    
+    if (!confirmacion) return;
+    
+    if (!db) {
+        alert("El sistema no está listo. Intente nuevamente.");
+        return;
+    }
+    
+    try {
+        const eliminaciones = Array.from(solicitudesSeleccionadas).map(docId => 
+            db.collection('solicitudesRepuestos').doc(docId).delete()
+        );
+        
+        await Promise.all(eliminaciones);
+        
+        alert(`${solicitudesSeleccionadas.size} solicitud(es) eliminada(s) exitosamente.`);
+        solicitudesSeleccionadas.clear();
+        ocultarOpcionesEliminar();
+        cargarSolicitudesAdmin();
+        verificarSolicitudesPendientes();
+        actualizarEstadisticas();
+        
+    } catch (error) {
+        console.error("Error al eliminar múltiples solicitudes:", error);
+        alert("Hubo un error al eliminar las solicitudes.");
+    }
+}
+
+// Función para eliminar una solicitud individual
+async function eliminarSolicitudIndividual(docId) {
+    if (confirm('¿Estás seguro de que quieres eliminar esta solicitud? Esta acción no se puede deshacer.')) {
+        if (!db) {
+            alert("El sistema no está listo. Intente nuevamente.");
+            return;
+        }
+        
+        try {
+            await db.collection('solicitudesRepuestos').doc(docId).delete();
+            alert('Solicitud eliminada exitosamente.');
+            cargarSolicitudesAdmin();
+            verificarSolicitudesPendientes();
+            actualizarEstadisticas();
+            
+        } catch (error) {
+            console.error("Error al eliminar solicitud individual:", error);
+            alert("Hubo un error al eliminar la solicitud.");
+        }
+    }
+}
+
+// Función auxiliar corregida para texto del filtro
+function obtenerTextoFiltro(filtro) {
+    switch(filtro) {
+        case 'pendientes': return 'pendientes';
+        case 'aceptadas': return 'aceptadas';
+        case 'rechazadas': return 'rechazadas';
+        case 'todas': return '';
+        default: return '';
+    }
+}
+
+// Función para filtrar solicitudes por botones
+function filtrarSolicitudesPorTipo(tipo) {
+    // Remover clase active de todos los botones
+    document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Agregar clase active al botón clickeado
+    document.getElementById(`btn-${tipo}`).classList.add('active');
+    
+    // Cargar las solicitudes con el filtro seleccionado
+    cargarSolicitudesAdmin(tipo);
+}
+
+// Función modificada para cargar solicitudes que acepta el tipo como parámetro
+async function cargarSolicitudesAdmin(tipoFiltro = null) {
+    const tbody = document.querySelector('#tabla-solicitudes tbody');
+    
+    // Si no se pasa tipoFiltro, usar el del botón activo
+    if (!tipoFiltro) {
+        const botonActivo = document.querySelector('.filter-buttons .btn.active');
+        tipoFiltro = botonActivo ? botonActivo.id.replace('btn-', '') : 'todas';
+    }
+    
+    tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
+    
+    if (!db) {
+        tbody.innerHTML = '<tr><td colspan="6">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarSolicitudesAdmin)");
+        return;
+    }
+
+    try {
+        let query = db.collection('solicitudesRepuestos').orderBy('fecha', 'desc');
+        
+        // Aplicar filtro según el tipo seleccionado
+        if (tipoFiltro === 'pendientes') {
+            query = query.where('estado', '==', 'Pendiente');
+        } else if (tipoFiltro === 'aceptadas') {
+            query = query.where('estado', '==', 'Aceptada');
+        } else if (tipoFiltro === 'rechazadas') {
+            // Para filtrar múltiples estados de rechazo
+            query = query.where('estado', 'in', ['Rechazada', 'Rechazada - No Existe', 'Rechazada - Stock Insuficiente']);
+        }
+        // Para "todas" no aplicamos ningún filtro where
+        
+        const querySnapshot = await query.get();
+        tbody.innerHTML = '';
+
+        if (querySnapshot.empty) {
+            tbody.innerHTML = `<tr><td colspan="6">No hay solicitudes ${obtenerTextoFiltro(tipoFiltro)}.</td></tr>`;
+            return;
+        }
+
+        querySnapshot.forEach(doc => {
+            const solicitud = doc.data();
+            const docId = doc.id;
+            const tr = document.createElement('tr');
+            
+            tr.innerHTML = `
+                <td>${solicitud.fecha}</td>
+                <td>${solicitud.mecanico}</td>
+                <td>${solicitud.repuesto}</td>
+                <td>${solicitud.cantidad}</td>
+                <td><span class="estado-${solicitud.estado.toLowerCase().replace(/ /g, '-')}">${solicitud.estado}</span></td>
+                <td class="action-buttons-table">
+                    ${solicitud.estado === 'Pendiente' ? 
+                    `<button class="btn-icon btn-icon-accept" onclick="aceptarSolicitud('${docId}', '${solicitud.repuesto}', ${solicitud.cantidad})" title="Aceptar solicitud">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button class="btn-icon btn-icon-reject" onclick="rechazarSolicitud('${docId}')" title="Rechazar solicitud">
+                        <i class="fas fa-times"></i>
+                    </button>` : 
+                    `<button class="btn-icon btn-icon-delete" onclick="eliminarSolicitudIndividual('${docId}')" title="Eliminar solicitud">
+                        <i class="fas fa-trash"></i>
+                    </button>`}
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+    } catch (error) {
+        console.error("Error al cargar solicitudes:", error);
+        tbody.innerHTML = '<tr><td colspan="6">Error al cargar datos.</td></tr>';
+    }
+}
+
+// Función auxiliar para texto del filtro
+function obtenerTextoFiltro(filtro) {
+    switch(filtro) {
+        case 'pendientes': return 'pendientes';
+        case 'aceptadas': return 'aceptadas';
+        case 'rechazadas': return 'rechazadas';
+        case 'todas': return '';
+        default: return '';
+    }
+}
+
+// ====== FUNCIONES PARA FILTRAR SOLICITUDES ======
+
+// Función para filtrar solicitudes por botones
+function filtrarSolicitudesPorTipo(tipo) {
+    console.log(`Filtrando por: ${tipo}`);
+    
+    // Remover clase active de todos los botones
+    document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Agregar clase active al botón clickeado
+    const botonClickeado = document.getElementById(`btn-${tipo}`);
+    if (botonClickeado) {
+        botonClickeado.classList.add('active');
+    }
+    
+    // Cargar las solicitudes con el filtro seleccionado
+    cargarSolicitudesAdmin(tipo);
+}
+
+// ====== FUNCIONES UNIFICADAS Y CORREGIDAS PARA SOLICITUDES ======
+
+// Función principal para cargar solicitudes
+async function cargarSolicitudesAdmin(tipoFiltro = 'todas') {
+    console.log("🔍 Cargando solicitudes con filtro:", tipoFiltro);
+    
+    const tbody = document.querySelector('#tabla-solicitudes tbody');
+    
+    if (!tbody) {
+        console.error('❌ No se encontró la tabla de solicitudes');
+        return;
+    }
+    
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" style="text-align: center; padding: 20px;">
+                <i class="fas fa-spinner fa-spin"></i> Cargando solicitudes...
+            </td>
+        </tr>
+    `;
+
+    if (!db) {
+        alert("❌ Error: Base de datos no disponible");
+        return;
+    }
+
+    try {
+        let query = db.collection('solicitudesRepuestos').orderBy('fecha', 'desc');
+        
+        if (tipoFiltro === 'pendientes') {
+            query = query.where('estado', '==', 'Pendiente');
+        } else if (tipoFiltro === 'aceptadas') {
+            query = query.where('estado', '==', 'Aceptada');
+        } else if (tipoFiltro === 'rechazadas') {
+            query = query.where('estado', 'in', ['Rechazada', 'Rechazada - No Existe', 'Rechazada - Stock Insuficiente']);
+        }
+        
+        const querySnapshot = await query.get();
+        tbody.innerHTML = '';
+
+        if (querySnapshot.empty) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 40px; color: #7f8c8d;">
+                        <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 15px;"></i>
+                        <div>No hay solicitudes ${obtenerTextoFiltro(tipoFiltro)}.</div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        querySnapshot.forEach(doc => {
+            const solicitud = doc.data();
+            const docId = doc.id;
+            const tr = document.createElement('tr');
+            
+            const fecha = solicitud.fecha || 'N/A';
+            const mecanico = solicitud.mecanico || 'N/A';
+            const repuesto = solicitud.repuesto || 'N/A';
+            const cantidad = solicitud.cantidad || 0;
+            const estado = solicitud.estado || 'N/A';
+            
+            // SOLUCIÓN: Mostrar botón de eliminar para TODOS los estados excepto pendientes
+            let botonesAccion = '';
+            if (estado === 'Pendiente') {
+                botonesAccion = `
+                    <button class="btn-icon btn-icon-accept" onclick="aceptarSolicitud('${docId}', '${repuesto.replace(/'/g, "\\'")}', ${cantidad})" title="Aceptar">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button class="btn-icon btn-icon-reject" onclick="rechazarSolicitud('${docId}')" title="Rechazar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+            } else {
+                botonesAccion = `
+                    <button class="btn-icon btn-icon-delete" onclick="eliminarSolicitud('${docId}')" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+            }
+            
+            tr.innerHTML = `
+                <td>${fecha}</td>
+                <td>${mecanico}</td>
+                <td>${repuesto}</td>
+                <td>${cantidad}</td>
+                <td><span class="estado-${estado.toLowerCase().replace(/ /g, '-')}">${estado}</span></td>
+                <td class="action-buttons-table">${botonesAccion}</td>
+            `;
+            
+            tbody.appendChild(tr);
+        });
+
+    } catch (error) {
+        console.error("❌ Error al cargar solicitudes:", error);
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 20px; color: #e74c3c;">
+                    <i class="fas fa-exclamation-triangle"></i> Error al cargar datos
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// FUNCIÓN CORREGIDA PARA ELIMINAR SOLICITUDES
+async function eliminarSolicitud(docId) {
+    console.log("🗑️ Intentando eliminar solicitud:", docId);
+    
+    if (!confirm('¿Estás seguro de que quieres ELIMINAR permanentemente esta solicitud?\n\nEsta acción no se puede deshacer.')) {
+        return;
+    }
+
+    if (!db) {
+        alert("❌ Error: Base de datos no disponible");
+        return;
+    }
+    
+    try {
+        // ELIMINAR directamente de Firestore
+        await db.collection('solicitudesRepuestos').doc(docId).delete();
+        
+        alert('✅ Solicitud eliminada exitosamente.');
+        
+        // Recargar la tabla manteniendo el filtro actual
+        const botonActivo = document.querySelector('.filter-buttons .btn.active');
+        const filtroActual = botonActivo ? botonActivo.id.replace('btn-', '') : 'todas';
+        cargarSolicitudesAdmin(filtroActual);
+        
+        // Actualizar notificaciones y estadísticas
+        verificarSolicitudesPendientes();
+        actualizarEstadisticas();
+        
+    } catch (error) {
+        console.error("❌ Error al eliminar solicitud:", error);
+        alert("❌ Error al eliminar la solicitud: " + error.message);
+    }
+}
+
+// Función para aceptar solicitud
+async function aceptarSolicitud(docId, repuestoNombre, cantidad) {
+    if (!db) {
+        alert("❌ Error: Base de datos no disponible");
+        return;
+    }
+
+    try {
+        const repuestoQuery = await db.collection('inventario').where('nombre', '==', repuestoNombre).get();
+        
+        if (repuestoQuery.empty) {
+            await db.collection('solicitudesRepuestos').doc(docId).update({
+                estado: 'Rechazada - No Existe'
+            });
+            alert(`❌ El repuesto "${repuestoNombre}" no existe en inventario.`);
+        } else {
+            const repuestoDoc = repuestoQuery.docs[0];
+            const repuestoData = repuestoDoc.data();
+            
+            if (repuestoData.stock < cantidad) {
+                await db.collection('solicitudesRepuestos').doc(docId).update({
+                    estado: 'Rechazada - Stock Insuficiente'
+                });
+                alert(`❌ Stock insuficiente. Stock actual: ${repuestoData.stock}`);
+            } else {
+                await db.collection('inventario').doc(repuestoDoc.id).update({
+                    stock: firebase.firestore.FieldValue.increment(-cantidad)
+                });
+                
+                await db.collection('solicitudesRepuestos').doc(docId).update({
+                    estado: 'Aceptada'
+                });
+                
+                alert(`✅ ${cantidad} unidades de ${repuestoNombre} entregadas.`);
+            }
+        }
+        
+        const botonActivo = document.querySelector('.filter-buttons .btn.active');
+        const filtroActual = botonActivo ? botonActivo.id.replace('btn-', '') : 'todas';
+        cargarSolicitudesAdmin(filtroActual);
+        verificarSolicitudesPendientes();
+        actualizarEstadisticas();
+        
+    } catch (error) {
+        console.error("❌ Error:", error);
+        alert("❌ Error al procesar la solicitud.");
+    }
+}
+
+// Función para rechazar solicitud
+async function rechazarSolicitud(docId) {
+    if (!confirm('¿Estás seguro de que quieres rechazar esta solicitud?')) {
+        return;
+    }
+
+    if (!db) {
+        alert("❌ Error: Base de datos no disponible");
+        return;
+    }
+    
+    try {
+        await db.collection('solicitudesRepuestos').doc(docId).update({
+            estado: 'Rechazada'
+        });
+        
+        alert('❌ Solicitud rechazada.');
+        
+        const botonActivo = document.querySelector('.filter-buttons .btn.active');
+        const filtroActual = botonActivo ? botonActivo.id.replace('btn-', '') : 'todas';
+        cargarSolicitudesAdmin(filtroActual);
+        verificarSolicitudesPendientes();
+        actualizarEstadisticas();
+        
+    } catch (error) {
+        console.error("❌ Error:", error);
+        alert("❌ Error al rechazar la solicitud.");
+    }
+}
+
+// Función para filtrar solicitudes
+function filtrarSolicitudesPorTipo(tipo) {
+    console.log(`🎯 Filtrando por: ${tipo}`);
+    
+    document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    const botonClickeado = document.getElementById(`btn-${tipo}`);
+    if (botonClickeado) {
+        botonClickeado.classList.add('active');
+    }
+    
+    cargarSolicitudesAdmin(tipo);
+}
+
+// Función auxiliar
+function obtenerTextoFiltro(filtro) {
+    const textos = {
+        'pendientes': 'pendientes',
+        'aceptadas': 'aceptadas', 
+        'rechazadas': 'rechazadas',
+        'todas': ''
+    };
+    return textos[filtro] || '';
+}
+
+// Función auxiliar para texto del filtro
+function obtenerTextoFiltro(filtro) {
+    const textos = {
+        'pendientes': 'pendientes',
+        'aceptadas': 'aceptadas', 
+        'rechazadas': 'rechazadas',
+        'todas': ''
+    };
+    return textos[filtro] || '';
+}
+
+// Función para filtrar por botones
+function filtrarSolicitudesPorTipo(tipo) {
+    console.log(`🎯 Filtrando solicitudes por: ${tipo}`);
+    
+    // Actualizar botones activos
+    document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    const botonClickeado = document.getElementById(`btn-${tipo}`);
+    if (botonClickeado) {
+        botonClickeado.classList.add('active');
+    }
+    
+    // Cargar solicitudes con el filtro
+    cargarSolicitudesAdmin(tipo);
+}
+
+// ====== FUNCIÓN PARA FILTRAR SOLICITUDES POR BOTONES ======
+function filtrarSolicitudesPorTipo(tipo) {
+    console.log(`Filtrando por: ${tipo}`);
+    
+    // Remover clase active de todos los botones
+    document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Agregar clase active al botón clickeado
+    const botonClickeado = document.getElementById(`btn-${tipo}`);
+    if (botonClickeado) {
+        botonClickeado.classList.add('active');
+    }
+    
+    // Cargar las solicitudes con el filtro seleccionado
+    cargarSolicitudesAdmin(tipo);
+}
+
+// Función auxiliar para texto del filtro
+function obtenerTextoFiltro(filtro) {
+    switch(filtro) {
+        case 'pendientes': return 'pendientes';
+        case 'aceptadas': return 'aceptadas';
+        case 'rechazadas': return 'rechazadas';
+        case 'todas': return '';
+        default: return '';
+    }
+}
+
+// Función auxiliar para texto del filtro
+function obtenerTextoFiltro(filtro) {
+    const textos = {
+        'pendientes': 'pendientes',
+        'aceptadas': 'aceptadas', 
+        'rechazadas': 'rechazadas',
+        'todas': ''
+    };
+    return textos[filtro] || '';
+}
+
+// Función para filtrar por botones
+function filtrarSolicitudesPorTipo(tipo) {
+    console.log(`🎯 Filtrando solicitudes por: ${tipo}`);
+    
+    // Actualizar botones activos
+    document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    const botonClickeado = document.getElementById(`btn-${tipo}`);
+    if (botonClickeado) {
+        botonClickeado.classList.add('active');
+    }
+    
+    // Cargar solicitudes con el filtro
+    cargarSolicitudesAdmin(tipo);
+}
+
+// Funciones básicas para aceptar/rechazar (placeholders)
+async function aceptarSolicitud(docId, repuesto, cantidad) {
+    alert(`Función aceptar: ${repuesto} - ${cantidad} unidades`);
+    // Implementar lógica completa después
+}
+
+async function rechazarSolicitud(docId) {
+    if (confirm('¿Estás seguro de que quieres rechazar esta solicitud?')) {
+        alert('Solicitud rechazada');
+        // Recargar tabla
+        const botonActivo = document.querySelector('.filter-buttons .btn.active');
+        const filtroActual = botonActivo ? botonActivo.id.replace('btn-', '') : 'todas';
+        cargarSolicitudesAdmin(filtroActual);
+    }
+}
+
+async function eliminarSolicitudIndividual(docId) {
+    if (confirm('¿Estás seguro de que quieres eliminar esta solicitud?')) {
+        alert('Solicitud eliminada');
+        // Recargar tabla  
+        const botonActivo = document.querySelector('.filter-buttons .btn.active');
+        const filtroActual = botonActivo ? botonActivo.id.replace('btn-', '') : 'todas';
+        cargarSolicitudesAdmin(filtroActual);
+    }
+}
+
+// ====== FUNCIONES PARA ACEPTAR Y RECHAZAR SOLICITUDES ======
+async function aceptarSolicitud(docId, repuestoNombre, cantidad) {
+    if (!db) {
+        alert("El sistema no está listo. Intente nuevamente.");
+        return;
+    }
+
+    try {
+        // Buscar el repuesto en inventario
+        const repuestoQuery = await db.collection('inventario').where('nombre', '==', repuestoNombre).get();
+        
+        if (repuestoQuery.empty) {
+            // Si no existe el repuesto
+            await db.collection('solicitudesRepuestos').doc(docId).update({
+                estado: 'Rechazada - No Existe'
+            });
+            alert(`Solicitud rechazada: El repuesto "${repuestoNombre}" no existe en inventario.`);
+        } else {
+            const repuestoDoc = repuestoQuery.docs[0];
+            const repuestoData = repuestoDoc.data();
+            
+            if (repuestoData.stock < cantidad) {
+                // Si no hay stock suficiente
+                await db.collection('solicitudesRepuestos').doc(docId).update({
+                    estado: 'Rechazada - Stock Insuficiente'
+                });
+                alert(`Solicitud rechazada: Stock insuficiente. Stock actual: ${repuestoData.stock}, solicitado: ${cantidad}`);
+            } else {
+                // Aceptar la solicitud y actualizar stock
+                await db.collection('inventario').doc(repuestoDoc.id).update({
+                    stock: firebase.firestore.FieldValue.increment(-cantidad)
+                });
+                
+                await db.collection('solicitudesRepuestos').doc(docId).update({
+                    estado: 'Aceptada'
+                });
+                
+                alert(`Solicitud aceptada: ${cantidad} unidades de ${repuestoNombre} entregadas.`);
+            }
+        }
+        
+        // Recargar la tabla
+        const botonActivo = document.querySelector('.filter-buttons .btn.active');
+        const filtroActual = botonActivo ? botonActivo.id.replace('btn-', '') : 'todas';
+        cargarSolicitudesAdmin(filtroActual);
+        verificarSolicitudesPendientes();
+        actualizarEstadisticas();
+        
+    } catch (error) {
+        console.error("Error al procesar solicitud:", error);
+        alert("Hubo un error al procesar la solicitud.");
+    }
+}
+
+async function rechazarSolicitud(docId) {
+    if (confirm('¿Estás seguro de que quieres rechazar esta solicitud?')) {
+        if (!db) {
+            alert("El sistema no está listo. Intente nuevamente.");
+            return;
+        }
+        
+        try {
+            await db.collection('solicitudesRepuestos').doc(docId).update({
+                estado: 'Rechazada'
+            });
+            
+            alert('Solicitud rechazada.');
+            
+            // Recargar la tabla
+            const botonActivo = document.querySelector('.filter-buttons .btn.active');
+            const filtroActual = botonActivo ? botonActivo.id.replace('btn-', '') : 'todas';
+            cargarSolicitudesAdmin(filtroActual);
+            verificarSolicitudesPendientes();
+            actualizarEstadisticas();
+            
+        } catch (error) {
+            console.error("Error al rechazar solicitud:", error);
+            alert("Hubo un error al rechazar la solicitud.");
+        }
+    }
 }
 
 // ====== INICIALIZACIÓN DEL SISTEMA ======

@@ -1024,6 +1024,224 @@ async function verificarStockBajo() {
         isCheckingStock = false;
     }
 }
+// --- FUNCIONES NUEVAS PARA LA TABLA DE ENTRADAS ---
+async function actualizarEntrada(docId) {
+    if (!db) {
+        console.error("Firestore no está inicializado (actualizarEntrada)");
+        alert("El sistema no está listo. Intente nuevamente.");
+        return;
+    }
+
+    try {
+        const docRef = db.collection('historialEntradas').doc(docId);
+        const docSnap = await docRef.get();
+
+        if (!docSnap.exists) {
+            alert("El registro de entrada que intentas actualizar ya no existe.");
+            return;
+        }
+        
+        const entrada = docSnap.data();
+
+        // Solicitar nuevos valores para todos los campos
+        const nuevaFecha = prompt(`Actualizar fecha (actual: ${entrada.fecha}):`, entrada.fecha);
+        if (nuevaFecha === null) {
+            alert('Actualización cancelada.');
+            return;
+        }
+
+        const nuevoCodigo = prompt(`Actualizar código (actual: ${entrada.codigo}):`, entrada.codigo);
+        if (nuevoCodigo === null || nuevoCodigo.trim() === '') {
+            alert('Actualización cancelada. El código no puede estar vacío.');
+            return;
+        }
+
+        const nuevoNombre = prompt(`Actualizar producto (actual: ${entrada.nombre}):`, entrada.nombre);
+        if (nuevoNombre === null || nuevoNombre.trim() === '') {
+            alert('Actualización cancelada. El producto no puede estar vacío.');
+            return;
+        }
+
+        const nuevaCantidad = prompt(`Actualizar cantidad (actual: ${entrada.cantidad}):`, entrada.cantidad);
+        if (nuevaCantidad === null || isNaN(parseInt(nuevaCantidad)) || parseInt(nuevaCantidad) <= 0) {
+            alert('Actualización cancelada. La cantidad debe ser un número válido mayor a 0.');
+            return;
+        }
+        const cantidadInt = parseInt(nuevaCantidad);
+
+        // Si cambió el código o el producto, necesitamos verificar el nuevo producto en inventario
+        if (nuevoCodigo !== entrada.codigo || nuevoNombre !== entrada.nombre) {
+            const nuevoProductoQuery = await db.collection('inventario').where('codigo', '==', nuevoCodigo.trim().toUpperCase()).get();
+            
+            if (nuevoProductoQuery.empty) {
+                alert(`El nuevo código "${nuevoCodigo}" no existe en el inventario.`);
+                return;
+            }
+            
+            const nuevoProductoData = nuevoProductoQuery.docs[0].data();
+            if (nuevoProductoData.nombre !== nuevoNombre.trim().toUpperCase()) {
+                alert(`El nombre del producto no coincide con el código. Producto esperado: ${nuevoProductoData.nombre}`);
+                return;
+            }
+        }
+
+        // Calcular la diferencia para actualizar el inventario
+        const diferencia = cantidadInt - entrada.cantidad;
+
+        // Procesar cambios en el inventario
+        if (nuevoCodigo !== entrada.codigo || nuevoNombre !== entrada.nombre) {
+            // Si cambió el producto, revertir el stock del producto anterior y agregar al nuevo
+            const productoAnteriorQuery = await db.collection('inventario').where('codigo', '==', entrada.codigo).limit(1).get();
+            if (!productoAnteriorQuery.empty) {
+                const productoAnteriorDoc = productoAnteriorQuery.docs[0];
+                const productoAnteriorData = productoAnteriorDoc.data();
+                
+                // Verificar stock suficiente para revertir
+                if (productoAnteriorData.stock < entrada.cantidad) {
+                    alert(`No se puede cambiar el producto. Stock insuficiente del producto anterior. Stock actual: ${productoAnteriorData.stock}`);
+                    return;
+                }
+                
+                // Revertir stock del producto anterior
+                await db.collection('inventario').doc(productoAnteriorDoc.id).update({
+                    stock: firebase.firestore.FieldValue.increment(-entrada.cantidad)
+                });
+            }
+            
+            // Agregar stock al nuevo producto
+            const nuevoProductoQuery = await db.collection('inventario').where('codigo', '==', nuevoCodigo.trim().toUpperCase()).limit(1).get();
+            if (!nuevoProductoQuery.empty) {
+                const nuevoProductoDoc = nuevoProductoQuery.docs[0];
+                await db.collection('inventario').doc(nuevoProductoDoc.id).update({
+                    stock: firebase.firestore.FieldValue.increment(cantidadInt)
+                });
+            }
+        } else {
+            // Si es el mismo producto, solo ajustar la cantidad
+            if (diferencia !== 0) {
+                const productoQuery = await db.collection('inventario').where('codigo', '==', entrada.codigo).limit(1).get();
+                
+                if (!productoQuery.empty) {
+                    const productoDoc = productoQuery.docs[0];
+                    const productoData = productoDoc.data();
+                    
+                    // Verificar stock suficiente si es una reducción
+                    if (diferencia < 0 && productoData.stock < Math.abs(diferencia)) {
+                        alert(`Stock insuficiente. Stock actual: ${productoData.stock}. No se puede reducir la cantidad.`);
+                        return;
+                    }
+                    
+                    // Actualizar el stock en inventario
+                    await db.collection('inventario').doc(productoDoc.id).update({
+                        stock: firebase.firestore.FieldValue.increment(diferencia)
+                    });
+                }
+            }
+        }
+        
+        // Actualizar el registro de entrada
+        await docRef.update({
+            fecha: nuevaFecha.trim(),
+            codigo: nuevoCodigo.trim().toUpperCase(),
+            nombre: nuevoNombre.trim().toUpperCase(),
+            cantidad: cantidadInt
+        });
+        
+        alert(`Entrada actualizada exitosamente.\n\nProducto: ${nuevoNombre}\nCódigo: ${nuevoCodigo}\nCantidad: ${cantidadInt}\nFecha: ${nuevaFecha}`);
+        cargarHistorialEntradas();
+        cargarInventarioCompleto();
+        verificarStockBajo();
+        actualizarEstadisticas();
+
+    } catch (error) {
+        console.error("Error al actualizar la entrada: ", error);
+        alert("Hubo un error al actualizar el registro de entrada.");
+    }
+}
+
+async function eliminarEntrada(docId, codigoProducto, nombreProducto, cantidad) {
+    if (confirm(`¿Estás seguro de que quieres eliminar la entrada de ${cantidad} unidades de "${nombreProducto}"?`)) {
+        if (!db) {
+            console.error("Firestore no está inicializado (eliminarEntrada)");
+            alert("El sistema no está listo. Intente nuevamente.");
+            return;
+        }
+
+        try {
+            // Buscar el producto en inventario para revertir el stock
+            const inventarioQuery = await db.collection('inventario').where('codigo', '==', codigoProducto).limit(1).get();
+            if (!inventarioQuery.empty) {
+                const productoDoc = inventarioQuery.docs[0];
+                const productoData = productoDoc.data();
+                
+                // Verificar que al revertir no quede stock negativo
+                if (productoData.stock < cantidad) {
+                    alert(`No se puede eliminar esta entrada. El stock actual (${productoData.stock}) es menor que la cantidad a revertir (${cantidad}).`);
+                    return;
+                }
+                
+                // Revertir el stock en inventario
+                await db.collection('inventario').doc(productoDoc.id).update({
+                    stock: firebase.firestore.FieldValue.increment(-cantidad)
+                });
+            }
+            
+            // Eliminar el registro de entrada
+            await db.collection('historialEntradas').doc(docId).delete();
+            
+            alert('Entrada eliminada exitosamente y stock revertido.');
+            cargarHistorialEntradas();
+            cargarInventarioCompleto();
+            verificarStockBajo();
+            actualizarEstadisticas();
+
+        } catch (error) {
+            console.error("Error al eliminar la entrada: ", error);
+            alert("Hubo un error al eliminar el registro de entrada.");
+        }
+    }
+}
+
+// Función modificada para cargar historial de entradas con acciones
+async function cargarHistorialEntradas() {
+    const tbody = document.querySelector('#tabla-entradas-historial tbody');
+    tbody.innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
+
+    if (!db) {
+        tbody.innerHTML = '<tr><td colspan="5">Error: Firestore no está inicializado.</td></tr>';
+        console.error("Firestore no está inicializado (cargarHistorialEntradas)");
+        return;
+    }
+
+    try {
+        const querySnapshot = await db.collection('historialEntradas').orderBy('fecha', 'desc').get();
+        tbody.innerHTML = '';
+
+        if(querySnapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="5">No hay entradas registradas.</td></tr>';
+            return;
+        }
+
+        querySnapshot.forEach(doc => {
+            const item = doc.data();
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.fecha}</td>
+                <td>${item.codigo}</td>
+                <td>${item.nombre}</td>
+                <td>${item.cantidad}</td>
+                <td class="action-buttons-table">
+                    <button class="btn btn-warning btn-sm" onclick="actualizarEntrada('${doc.id}')">Actualizar</button>
+                    <button class="btn btn-danger btn-sm" onclick="eliminarEntrada('${doc.id}', '${item.codigo}', '${item.nombre}', ${item.cantidad})">Eliminar</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error("Error al cargar historial de entradas: ", error);
+        tbody.innerHTML = '<tr><td colspan="5">Error al cargar datos.</td></tr>';
+    }
+}
 
 // --- FUNCIONES NUEVAS PARA LA TABLA DE SALIDAS ---
 async function actualizarSalida(docId) {
@@ -1107,7 +1325,7 @@ async function eliminarSalida(docId, nombreRepuesto, cantidad) {
 
 // Función para inicializar la sección de reportes
 function inicializarReportes() {
-    // Crear instancias de gráficos vacías (solo los que quedan)
+    // Crear instancias de gráficos vacías (incluyendo el nuevo gráfico)
     const chartConfigs = {
         'chartMovimientosDia': {
             type: 'line',
@@ -1128,10 +1346,15 @@ function inicializarReportes() {
             type: 'line',
             data: { labels: [], datasets: [] },
             options: getChartOptions('Tendencia Mensual', 'Cantidad', true)
+        },
+        'chartClasificacionSolicitudes': {
+            type: 'pie',
+            data: { labels: [], datasets: [] },
+            options: getChartOptions('Clasificación de Solicitudes', '')
         }
     };
 
-    // Inicializar solo los gráficos que quedan
+    // Inicializar todos los gráficos
     Object.keys(chartConfigs).forEach(chartId => {
         const ctx = document.getElementById(chartId).getContext('2d');
         chartInstances[chartId] = new Chart(ctx, chartConfigs[chartId]);
@@ -1179,7 +1402,8 @@ async function exportarGraficosPDF() {
             { id: 'chartMovimientosDia', nombre: 'Movimientos por Día' },
             { id: 'chartProductosMovimientos', nombre: 'Productos con Más Movimientos' },
             { id: 'chartDistribucionStock', nombre: 'Distribución de Stock' },
-            { id: 'chartTendenciaMensual', nombre: 'Tendencia Mensual de Movimientos' }
+            { id: 'chartTendenciaMensual', nombre: 'Tendencia Mensual de Movimientos' },
+            { id: 'chartClasificacionSolicitudes', nombre: 'Clasificación de Solicitudes' }
         ];
         
         // Crear contenedor temporal optimizado
@@ -1206,7 +1430,7 @@ async function exportarGraficosPDF() {
         `;
         contenedorTemporal.appendChild(header);
         
-        // Grid de gráficos 2x2
+        // Grid de gráficos 2x3
         const grid = document.createElement('div');
         grid.style.cssText = `
             display: grid;
@@ -1323,11 +1547,12 @@ async function generarReportes() {
             !fechaLimite || new Date(doc.data().fecha) >= fechaLimite
         );
 
-        // Generar todos los gráficos (solo los que quedan)
+        // Generar todos los gráficos (incluyendo el nuevo)
         generarGraficoMovimientosDia(entradasFiltradas, salidasFiltradas);
         generarGraficoProductosMovimientos(entradasFiltradas, salidasFiltradas);
         generarGraficoDistribucionStock(inventarioData);
         generarGraficoTendenciaMensual(entradasFiltradas, salidasFiltradas);
+        generarGraficoClasificacionSolicitudes(solicitudesFiltradas);
         
         // Actualizar estadísticas resumen
         actualizarEstadisticasResumen(
@@ -1543,6 +1768,53 @@ function generarGraficoTendenciaMensual(entradas, salidas) {
         }
     ];
     chartInstances.chartTendenciaMensual.update();
+}
+
+// NUEVO GRÁFICO 5: Clasificación de solicitudes
+function generarGraficoClasificacionSolicitudes(solicitudes) {
+    const clasificacion = {
+        'Pendientes': 0,
+        'Aceptadas': 0,
+        'Rechazadas': 0,
+        'Rechazadas - No Existe': 0,
+        'Rechazadas - Stock Insuficiente': 0
+    };
+    
+    // Contar solicitudes por estado
+    solicitudes.forEach(doc => {
+        const estado = doc.data().estado;
+        if (clasificacion.hasOwnProperty(estado)) {
+            clasificacion[estado]++;
+        } else {
+            clasificacion['Pendientes']++; // Por si hay algún estado no contemplado
+        }
+    });
+    
+    // Filtrar solo los estados que tienen valores
+    const estadosConValores = Object.entries(clasificacion).filter(([, valor]) => valor > 0);
+    
+    const labels = estadosConValores.map(([estado]) => estado);
+    const data = estadosConValores.map(([, valor]) => valor);
+    
+    // Colores para cada estado
+    const colores = {
+        'Pendientes': '#f8961e', // Naranja
+        'Aceptadas': '#4cc9f0',  // Azul claro
+        'Rechazadas': '#f72585', // Rosa
+        'Rechazadas - No Existe': '#e76f51', // Rojo anaranjado
+        'Rechazadas - Stock Insuficiente': '#7209b7' // Morado
+    };
+    
+    const backgroundColor = labels.map(label => colores[label] || '#6c757d');
+    
+    chartInstances.chartClasificacionSolicitudes.data.labels = labels;
+    chartInstances.chartClasificacionSolicitudes.data.datasets = [{
+        data: data,
+        backgroundColor: backgroundColor,
+        borderWidth: 2,
+        borderColor: '#fff'
+    }];
+    chartInstances.chartClasificacionSolicitudes.update();
 }
 
 // Actualizar estadísticas resumen

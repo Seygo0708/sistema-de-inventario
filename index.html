@@ -45,8 +45,22 @@
                         </div>
                     </div>
                     <button class="btn btn-primary" onclick="login()">
-                        <i class="fas fa-sign-in-alt"></i> Ingresar
-                    </button>
+    <i class="fas fa-sign-in-alt"></i> Ingresar
+</button>
+
+<!-- ====== BOTONES DE CONTACTO ====== -->
+<div class="contact-buttons">
+    <a href="mailto:correo@empresa.com?subject=Contacto Sistema Inventario&body=Necesito soporte para el sistema de inventario" 
+       class="btn-contact btn-email">
+        <i class="fas fa-envelope"></i> Correo Empresa
+    </a>
+    <a href="https://wa.me/51987654321?text=Hola,%20necesito%20soporte%20para%20el%20sistema%20de%20inventario" 
+       target="_blank" class="btn-contact btn-whatsapp">
+        <i class="fab fa-whatsapp"></i> WhatsApp Soporte
+    </a>
+</div>
+
+            <div class="separator"></div>
                     
                     <div class="credits">
                         <p>Creado por estudiante: <a href="mailto:alvarezsosarocio@gmail.com?subject=SOPORTE&body=NOMBRE%20Y%20APELLIDOS%3A%0ACORREO%3A%0ANUMERO%20DE%20CELULAR%3A">Alexandra Rocio</a></p>
@@ -134,17 +148,16 @@
                             <p>Bienvenido al Sistema de Gestión de Inventario</p>
                         </div>
 
-                        <!-- NOTIFICACIONES -->
-                        <div id="stock-notification-container" class="notification-container" style="display: none;">
-                            <h4><i class="fas fa-exclamation-triangle"></i> Alertas de Stock Bajo</h4>
-                            <ul id="stock-low-list"></ul>
-                        </div>
+                       <!-- NOTIFICACIONES -->
+            <div id="stock-notification-container" class="notification-container notification-stock-low" style="display: none;">
+     <h4><i class="fas fa-exclamation-triangle"></i> Alertas de Stock Bajo</h4>
+     <ul id="stock-low-list"></ul>
+</div>
 
-                        <div id="solicitud-notification-container" class="notification-container" style="display: none;">
-                            <h4><i class="fas fa-bell"></i> Solicitudes Pendientes</h4>
-                            <ul id="solicitud-list"></ul>
-                        </div>
-
+            <div id="solicitud-notification-container" class="notification-container notification-solicitudes" style="display: none;">
+    <h4><i class="fas fa-bell"></i> Solicitudes Pendientes</h4>
+    <ul id="solicitud-list"></ul>
+</div>
                         <!-- ESTADÍSTICAS -->
                         <div class="stats-cards">
                             <div class="stat-card">
@@ -247,13 +260,14 @@
                                                 <th>Código</th>
                                                 <th>Producto</th>
                                                 <th>Cantidad</th>
+                                                <th>Acciones</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <!-- Los datos se cargan dinámicamente -->
                                         </tbody>
                                     </table>
-                                </div>
+                              </div>
                             </div>
                         </div>
                     </div>
@@ -559,13 +573,24 @@
                             </div>
 
                             <!-- GRÁFICO 4: TENDENCIA MENSUAL -->
-                            <div class="chart-container full-width">
+                            <div class="chart-container">
                                 <div class="chart-header">
                                     <h4><i class="fas fa-chart-area"></i> Tendencia Mensual de Movimientos</h4>
                                     <p>Comparativa mensual de entradas vs salidas</p>
                                 </div>
                                 <div class="chart-wrapper">
                                     <canvas id="chartTendenciaMensual"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- NUEVO GRÁFICO 5: CLASIFICACIÓN DE SOLICITUDES -->
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <h4><i class="fas fa-chart-pie"></i> Clasificación de Solicitudes</h4>
+                                    <p>Resumen de respuestas a solicitudes</p>
+                                </div>
+                                <div class="chart-wrapper">
+                                    <canvas id="chartClasificacionSolicitudes"></canvas>
                                 </div>
                             </div>
                         </div>

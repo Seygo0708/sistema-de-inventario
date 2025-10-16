@@ -404,12 +404,13 @@ async function agregarSalida(event) {
 async function solicitarRepuesto(event) {
     event.preventDefault();
     
+    const codigo = document.getElementById('solicitar-codigo').value.trim().toUpperCase();
     const nombre = document.getElementById('solicitar-nombre').value.trim();
     const cantidad = parseInt(document.getElementById('solicitar-cantidad').value);
-    const usuarioMecanico = 'mecanico'; // Asumimos que el usuario actual es "mecanico"
+    const usuarioMecanico = 'mecanico';
 
-    if (!nombre || isNaN(cantidad) || cantidad <= 0) {
-        alert('Por favor, ingrese un nombre de repuesto y una cantidad válida.');
+    if (!codigo || !nombre || isNaN(cantidad) || cantidad <= 0) {
+        alert('Por favor, complete todos los campos correctamente.');
         return;
     }
 
@@ -423,6 +424,7 @@ async function solicitarRepuesto(event) {
         await db.collection('solicitudesRepuestos').add({
             fecha: new Date().toISOString().slice(0, 10),
             mecanico: usuarioMecanico,
+            codigo: codigo,
             repuesto: nombre,
             cantidad: cantidad,
             estado: 'Pendiente'
@@ -437,9 +439,16 @@ async function solicitarRepuesto(event) {
     }
 }
 
+// Función para autocompletar nombre en solicitud de repuesto
+function autocompletarNombreSolicitud() {
+    autocompletarNombreGenerico('solicitar-codigo', 'solicitar-nombre');
+}
+
 // --- FUNCIONES DEL ADMINISTRADOR PARA SOLICITUDES ---
 async function cargarSolicitudesAdmin() {
     const tbody = document.querySelector('#tabla-solicitudes tbody');
+    const filtro = document.getElementById('filtro-solicitudes').value;
+    
     tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
     
     if (!db) {
@@ -449,11 +458,22 @@ async function cargarSolicitudesAdmin() {
     }
 
     try {
-        const querySnapshot = await db.collection('solicitudesRepuestos').orderBy('fecha', 'desc').get();
+        let query = db.collection('solicitudesRepuestos').orderBy('fecha', 'desc');
+        
+        // Aplicar filtro según selección
+        if (filtro === 'pendientes') {
+            query = query.where('estado', '==', 'Pendiente');
+        } else if (filtro === 'aceptadas') {
+            query = query.where('estado', '==', 'Aceptada').limit(10);
+        } else if (filtro === 'rechazadas') {
+            query = query.where('estado', 'in', ['Rechazada', 'Rechazada - No Existe', 'Rechazada - Stock Insuficiente']).limit(10);
+        }
+        
+        const querySnapshot = await query.get();
         tbody.innerHTML = '';
 
         if (querySnapshot.empty) {
-            tbody.innerHTML = '<tr><td colspan="6">No hay solicitudes pendientes.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6">No hay solicitudes ' + obtenerTextoFiltro(filtro) + '.</td></tr>';
             return;
         }
 
@@ -466,12 +486,16 @@ async function cargarSolicitudesAdmin() {
                 <td>${solicitud.mecanico}</td>
                 <td>${solicitud.repuesto}</td>
                 <td>${solicitud.cantidad}</td>
-                <td><span class="estado-${solicitud.estado.toLowerCase()}">${solicitud.estado}</span></td>
+                <td><span class="estado-${solicitud.estado.toLowerCase().replace(/ /g, '-')}">${solicitud.estado}</span></td>
                 <td class="action-buttons-table">
                     ${solicitud.estado === 'Pendiente' ? 
-                    `<button class="btn btn-success btn-sm" onclick="aceptarSolicitud('${docId}', '${solicitud.repuesto}', ${solicitud.cantidad})">Aceptar</button>
-                    <button class="btn btn-danger btn-sm" onclick="rechazarSolicitud('${docId}')">Rechazar</button>`
-                    : ''}
+                    `<button class="btn-icon btn-icon-accept" onclick="aceptarSolicitud('${docId}', '${solicitud.repuesto}', ${solicitud.cantidad})" title="Aceptar solicitud">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button class="btn-icon btn-icon-reject" onclick="rechazarSolicitud('${docId}')" title="Rechazar solicitud">
+                        <i class="fas fa-times"></i>
+                    </button>`
+                    : '<span class="text-muted">-</span>'}
                 </td>
             `;
             tbody.appendChild(tr);
@@ -674,8 +698,12 @@ async function cargarRepuestosSalida() {
                 <td>${item.placa}</td>
                 <td>${item.kilometraje}</td>
                 <td class="action-buttons-table">
-                    <button class="btn btn-warning btn-sm" onclick="actualizarSalida('${doc.id}')">Actualizar</button>
-                    <button class="btn btn-danger btn-sm" onclick="eliminarSalida('${doc.id}', '${item.repuesto}', ${item.cantidad})">Eliminar</button>
+                    <button class="btn-icon btn-icon-edit" onclick="actualizarSalida('${doc.id}')" title="Actualizar salida">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon btn-icon-delete" onclick="eliminarSalida('${doc.id}', '${item.repuesto}', ${item.cantidad})" title="Eliminar salida">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -686,39 +714,67 @@ async function cargarRepuestosSalida() {
     }
 }
 
+// Función para cargar historial de entradas con iconos
 async function cargarHistorialEntradas() {
     const tbody = document.querySelector('#tabla-entradas-historial tbody');
-    tbody.innerHTML = '<tr><td colspan="4">Cargando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5"><div class="loading">Cargando entradas...</div></td></tr>';
 
     if (!db) {
-        tbody.innerHTML = '<tr><td colspan="4">Error: Firestore no está inicializado.</td></tr>';
-        console.error("Firestore no está inicializado (cargarHistorialEntradas)");
+        tbody.innerHTML = '<tr><td colspan="5"><div class="error-message">Error: Firestore no está inicializado</div></td></tr>';
         return;
     }
 
     try {
         const querySnapshot = await db.collection('historialEntradas').orderBy('fecha', 'desc').get();
-        tbody.innerHTML = '';
-
+        
         if(querySnapshot.empty) {
-            tbody.innerHTML = '<tr><td colspan="4">No hay entradas registradas.</td></tr>';
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 30px;">
+                        <i class="fas fa-inbox" style="font-size: 48px; color: #bdc3c7; margin-bottom: 10px;"></i>
+                        <div style="color: #7f8c8d;">No hay entradas registradas</div>
+                    </td>
+                </tr>
+            `;
             return;
         }
 
+        tbody.innerHTML = '';
         querySnapshot.forEach(doc => {
             const item = doc.data();
             const tr = document.createElement('tr');
+            
+            // Crear botones de forma más explícita
+            const editButton = document.createElement('button');
+            editButton.className = 'btn-icon btn-icon-edit';
+            editButton.innerHTML = '<i class="fas fa-edit"></i>';
+            editButton.title = 'Actualizar entrada';
+            editButton.onclick = () => actualizarEntrada(doc.id);
+            
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'btn-icon btn-icon-delete';
+            deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteButton.title = 'Eliminar entrada';
+            deleteButton.onclick = () => eliminarEntrada(doc.id, item.codigo, item.nombre, item.cantidad);
+            
+            const actionsCell = document.createElement('td');
+            actionsCell.className = 'action-buttons-table';
+            actionsCell.appendChild(editButton);
+            actionsCell.appendChild(deleteButton);
+            
             tr.innerHTML = `
                 <td>${item.fecha}</td>
                 <td>${item.codigo}</td>
                 <td>${item.nombre}</td>
                 <td>${item.cantidad}</td>
             `;
+            tr.appendChild(actionsCell);
             tbody.appendChild(tr);
         });
+
     } catch (error) {
         console.error("Error al cargar historial de entradas: ", error);
-        tbody.innerHTML = '<tr><td colspan="4">Error al cargar datos.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5"><div class="error-message">Error al cargar datos</div></td></tr>';
     }
 }
 
@@ -753,8 +809,12 @@ async function cargarInventarioCompleto() {
                 <td>S/ ${parseFloat(item.precioVenta).toFixed(2)}</td>
                 <td>${item.stock}</td>
                 <td class="action-buttons-table">
-                    <button class="btn btn-warning btn-sm" onclick="actualizarProducto('${doc.id}')">Actualizar</button>
-                    <button class="btn btn-danger btn-sm" onclick="eliminarProducto('${doc.id}', '${item.nombre}')">Eliminar</button>
+                    <button class="btn-icon btn-icon-edit" onclick="actualizarProducto('${doc.id}')" title="Actualizar producto">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon btn-icon-delete" onclick="eliminarProducto('${doc.id}', '${item.nombre}')" title="Eliminar producto">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -764,6 +824,7 @@ async function cargarInventarioCompleto() {
         tbody.innerHTML = '<tr><td colspan="8">Error al cargar datos.</td></tr>';
     }
 }
+
 
 async function eliminarProducto(docId, nombre) {
     if (confirm(`¿Estás seguro de que quieres eliminar el producto "${nombre}"? Esta acción no se puede deshacer.`)) {
@@ -1205,41 +1266,64 @@ async function eliminarEntrada(docId, codigoProducto, nombreProducto, cantidad) 
 // Función modificada para cargar historial de entradas con acciones
 async function cargarHistorialEntradas() {
     const tbody = document.querySelector('#tabla-entradas-historial tbody');
-    tbody.innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5"><div class="loading">Cargando entradas...</div></td></tr>';
 
     if (!db) {
-        tbody.innerHTML = '<tr><td colspan="5">Error: Firestore no está inicializado.</td></tr>';
-        console.error("Firestore no está inicializado (cargarHistorialEntradas)");
+        tbody.innerHTML = '<tr><td colspan="5"><div class="error-message">Error: Firestore no está inicializado</div></td></tr>';
         return;
     }
 
     try {
         const querySnapshot = await db.collection('historialEntradas').orderBy('fecha', 'desc').get();
-        tbody.innerHTML = '';
-
+        
         if(querySnapshot.empty) {
-            tbody.innerHTML = '<tr><td colspan="5">No hay entradas registradas.</td></tr>';
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 30px;">
+                        <i class="fas fa-inbox" style="font-size: 48px; color: #bdc3c7; margin-bottom: 10px;"></i>
+                        <div style="color: #7f8c8d;">No hay entradas registradas</div>
+                    </td>
+                </tr>
+            `;
             return;
         }
 
+        tbody.innerHTML = '';
         querySnapshot.forEach(doc => {
             const item = doc.data();
             const tr = document.createElement('tr');
+            
+            // Crear botones de forma más explícita
+            const editButton = document.createElement('button');
+            editButton.className = 'btn-icon btn-icon-edit';
+            editButton.innerHTML = '<i class="fas fa-edit"></i>';
+            editButton.title = 'Actualizar entrada';
+            editButton.onclick = () => actualizarEntrada(doc.id);
+            
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'btn-icon btn-icon-delete';
+            deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteButton.title = 'Eliminar entrada';
+            deleteButton.onclick = () => eliminarEntrada(doc.id, item.codigo, item.nombre, item.cantidad);
+            
+            const actionsCell = document.createElement('td');
+            actionsCell.className = 'action-buttons-table';
+            actionsCell.appendChild(editButton);
+            actionsCell.appendChild(deleteButton);
+            
             tr.innerHTML = `
                 <td>${item.fecha}</td>
                 <td>${item.codigo}</td>
                 <td>${item.nombre}</td>
                 <td>${item.cantidad}</td>
-                <td class="action-buttons-table">
-                    <button class="btn btn-warning btn-sm" onclick="actualizarEntrada('${doc.id}')">Actualizar</button>
-                    <button class="btn btn-danger btn-sm" onclick="eliminarEntrada('${doc.id}', '${item.codigo}', '${item.nombre}', ${item.cantidad})">Eliminar</button>
-                </td>
             `;
+            tr.appendChild(actionsCell);
             tbody.appendChild(tr);
         });
+
     } catch (error) {
         console.error("Error al cargar historial de entradas: ", error);
-        tbody.innerHTML = '<tr><td colspan="5">Error al cargar datos.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5"><div class="error-message">Error al cargar datos</div></td></tr>';
     }
 }
 
@@ -1842,7 +1926,23 @@ function actualizarEstadisticasResumen(entradas, salidas, solicitudes, inventari
     document.getElementById('valor-total').textContent = `S/ ${valorTotal.toFixed(2)}`;
 }
 
+// Función auxiliar para texto del filtro
+function obtenerTextoFiltro(filtro) {
+    switch(filtro) {
+        case 'pendientes': return 'pendientes';
+        case 'aceptadas': return 'aceptadas';
+        case 'rechazadas': return 'rechazadas';
+        default: return '';
+    }
+}
+
+// Función para filtrar solicitudes
+function filtrarSolicitudes() {
+    cargarSolicitudesAdmin();
+}
+
 // ====== INICIALIZACIÓN DEL SISTEMA ======
+// En la función de inicialización del sistema
 document.addEventListener('DOMContentLoaded', async () => {
     const firebaseInitialized = await initializeFirebase();
     
@@ -1856,6 +1956,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('entrada-codigo').addEventListener('input', autocompletarNombreEntrada);
     document.getElementById('salida-codigo').addEventListener('input', autocompletarNombreSalida);
     document.getElementById('nuevo-codigo').addEventListener('input', autocompletarNombreAgregarProducto);
+    document.getElementById('solicitar-codigo').addEventListener('input', autocompletarNombreSolicitud);
     document.getElementById('form-entrada').addEventListener('submit', agregarEntrada);
     document.getElementById('form-salida').addEventListener('submit', agregarSalida);
     document.getElementById('form-agregar-producto').addEventListener('submit', agregarNuevoProducto);

@@ -435,34 +435,51 @@
                         </div>
                     </div>
 
-                    <!-- SECCIÓN SOLICITUDES -->
-                    <div id="apartado-solicitudes" class="admin-section" style="display: none;">
-                        <div class="section-header">
-                            <h2><i class="fas fa-clipboard-list"></i> Gestión de Solicitudes</h2>
-                            <p>Gestionar solicitudes de repuestos del personal mecánico</p>
-                        </div>
+<!-- SECCIÓN SOLICITUDES -->
+<div id="apartado-solicitudes" class="admin-section" style="display: none;">
+    <div class="section-header">
+        <h2><i class="fas fa-clipboard-list"></i> Gestión de Solicitudes</h2>
+        <p>Gestionar solicitudes de repuestos del personal mecánico</p>
+    </div>
 
-                        <div class="sub-section-container full-width">
-                            <h4><i class="fas fa-tasks"></i> Solicitudes Pendientes</h4>
-                            <div class="table-responsive">
-                                <table id="tabla-solicitudes">
-                                    <thead>
-                                        <tr>
-                                            <th>Fecha</th>
-                                            <th>Mecánico</th>
-                                            <th>Repuesto</th>
-                                            <th>Cantidad</th>
-                                            <th>Estado</th>
-                                            <th>Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <!-- Los datos se cargan dinámicamente -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+    <!-- FILTRO DE SOLICITUDES -->
+    <div class="sub-section-container">
+        <h4><i class="fas fa-filter"></i> Filtrar Solicitudes</h4>
+        <div class="form-grid">
+            <select id="filtro-solicitudes" class="form-control" onchange="filtrarSolicitudes()">
+                <option value="todas">Todas las Solicitudes</option>
+                <option value="pendientes">Solo Pendientes</option>
+                <option value="aceptadas">Solo Aceptadas (Últimas 10)</option>
+                <option value="rechazadas">Solo Rechazadas (Últimas 10)</option>
+            </select>
+            <button class="btn btn-primary" onclick="cargarSolicitudesAdmin()">
+                <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
+        </div>
+    </div>
+
+    <!-- TABLA DE SOLICITUDES -->
+    <div class="sub-section-container full-width">
+        <h4><i class="fas fa-tasks"></i> Solicitudes</h4>
+        <div class="table-responsive">
+            <table id="tabla-solicitudes">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Mecánico</th>
+                        <th>Repuesto</th>
+                        <th>Cantidad</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Los datos se cargan dinámicamente -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
                     <!-- SECCIÓN STOCK -->
                     <div id="apartado-stock" class="admin-section" style="display: none;">
@@ -639,27 +656,33 @@
                 </div>
 
                 <div class="content-grid">
-                    <!-- SOLICITAR REPUESTO -->
-                    <div class="sub-section-container">
-                        <h4><i class="fas fa-clipboard-list"></i> Solicitar Repuesto</h4>
-                        <form id="form-solicitar-repuesto">
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label for="solicitar-nombre">Nombre del Repuesto</label>
-                                    <input type="text" id="solicitar-nombre" class="form-control" 
-                                           placeholder="Nombre del repuesto" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="solicitar-cantidad">Cantidad</label>
-                                    <input type="number" id="solicitar-cantidad" class="form-control" 
-                                           placeholder="Cantidad requerida" min="1" required>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-paper-plane"></i> Enviar Solicitud
-                            </button>
-                        </form>
-                    </div>
+                   <!-- SECCIÓN SOLICITAR REPUESTO - MECÁNICO -->
+<div class="sub-section-container">
+    <h4><i class="fas fa-clipboard-list"></i> Solicitar Repuesto</h4>
+    <form id="form-solicitar-repuesto">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="solicitar-codigo">Código del Producto</label>
+                <input type="text" id="solicitar-codigo" class="form-control" 
+                       placeholder="Ingrese código del producto" required 
+                       oninput="autocompletarNombreSolicitud()">
+            </div>
+            <div class="form-group">
+                <label for="solicitar-nombre">Nombre del Repuesto</label>
+                <input type="text" id="solicitar-nombre" class="form-control" 
+                       placeholder="Se autocompletará" readonly>
+            </div>
+            <div class="form-group">
+                <label for="solicitar-cantidad">Cantidad</label>
+                <input type="number" id="solicitar-cantidad" class="form-control" 
+                       placeholder="Cantidad requerida" min="1" required>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-paper-plane"></i> Enviar Solicitud
+        </button>
+    </form>
+</div>
 
                     <!-- BUSCAR REPUESTO -->
                     <div class="sub-section-container">

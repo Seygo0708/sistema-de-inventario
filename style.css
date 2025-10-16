@@ -1170,6 +1170,138 @@ tr:hover {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
 }
+/* ====== ESTILOS PARA BOTONES CON ICONOS ====== */
+.btn-icon {
+    width: 35px;
+    height: 35px;
+    border: none;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 14px;
+}
+
+.btn-icon:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-icon-edit {
+    background-color: var(--warning);
+    color: white;
+}
+
+.btn-icon-delete {
+    background-color: var(--danger);
+    color: white;
+}
+
+.btn-icon-accept {
+    background-color: var(--success);
+    color: white;
+}
+
+.btn-icon-reject {
+    background-color: var(--danger);
+    color: white;
+}
+
+/* ====== ESTILOS MEJORADOS PARA TABLAS ====== */
+.action-buttons-table {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+/* Asegurar que las celdas de acción tengan tamaño consistente */
+#tabla-entradas-historial td:last-child,
+#tabla-salida td:last-child,
+#tabla-inventario td:last-child,
+#tabla-solicitudes td:last-child {
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
+    text-align: center;
+}
+
+/* Mejorar la consistencia de las filas */
+tbody tr {
+    height: 55px;
+}
+
+/* Estados de solicitudes con mejor diseño */
+.estado-pendiente {
+    color: var(--warning);
+    font-weight: bold;
+    background-color: rgba(243, 156, 18, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.estado-aceptada {
+    color: var(--success);
+    font-weight: bold;
+    background-color: rgba(39, 174, 96, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.estado-rechazada {
+    color: var(--danger);
+    font-weight: bold;
+    background-color: rgba(231, 76, 60, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.estado-rechazada-no-existe {
+    color: var(--danger);
+    font-weight: bold;
+    background-color: rgba(231, 76, 60, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.estado-rechazada-stock-insuficiente {
+    color: var(--danger);
+    font-weight: bold;
+    background-color: rgba(231, 76, 60, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+/* ====== RESPONSIVE PARA TABLAS ====== */
+@media (max-width: 768px) {
+    .action-buttons-table {
+        flex-direction: row;
+        gap: 3px;
+    }
+    
+    .btn-icon {
+        width: 30px;
+        height: 30px;
+        font-size: 12px;
+    }
+    
+    #tabla-entradas-historial td:last-child,
+    #tabla-salida td:last-child,
+    #tabla-inventario td:last-child,
+    #tabla-solicitudes td:last-child {
+        width: 80px;
+        min-width: 80px;
+        max-width: 80px;
+    }
+}
 
 /* ====== ESTILOS PARA IMPRESIÓN ====== */
 @media print {

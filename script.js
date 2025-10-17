@@ -159,7 +159,7 @@ function mostrarApartado(nombre) {
 }
     }
 }
-//// ========= SISTEMA IA MEJORADO - PREDICCIÓN INTELIGENTE =========
+//// ========= SISTEMA IA - PREDICCIÓN INTELIGENTE =========
 function inicializarIA() {
     document.getElementById('ia-dias-analisis').value = 60;
     document.getElementById('ia-dias-cobertura').value = 45;
@@ -169,6 +169,16 @@ function inicializarIA() {
 }
 
 async function calcularIAStockMejorado() {
+    // Verificar que Firebase esté inicializado
+    if (!db) {
+        alert("❌ Error: La base de datos no está disponible. Intentando reconectar...");
+        const initialized = await initializeFirebase();
+        if (!initialized) {
+            alert("❌ No se pudo conectar a la base de datos. Verifica tu conexión.");
+            return;
+        }
+    }
+
     const diasAnalisis  = Number(document.getElementById('ia-dias-analisis').value || 60);
     const diasCobertura = Number(document.getElementById('ia-dias-cobertura').value || 45);
     const leadTime      = Number(document.getElementById('ia-leadtime').value || 7);
@@ -176,6 +186,10 @@ async function calcularIAStockMejorado() {
     const stockMinimo   = Number(document.getElementById('ia-stock-minimo').value || 3);
 
     try {
+        // Mostrar loading
+        const tbody = document.querySelector('#tabla-ia-resultados tbody');
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Analizando datos...</td></tr>';
+
         // Obtener datos completos
         const [salidasData, entradasData, stockData] = await Promise.all([
             obtenerSalidasCompletas(diasAnalisis),
@@ -184,7 +198,7 @@ async function calcularIAStockMejorado() {
         ]);
 
         // Procesar análisis avanzado
-        const analisis = await analisisAvanzadoStock(
+        const analisis = analisisAvanzadoStock(
             salidasData, 
             entradasData, 
             stockData, 
@@ -203,11 +217,21 @@ async function calcularIAStockMejorado() {
     } catch (error) {
         console.error("Error en IA:", error);
         alert("❌ Error al calcular predicciones: " + error.message);
+        
+        // Mostrar error en la tabla
+        const tbody = document.querySelector('#tabla-ia-resultados tbody');
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 20px; color: #e74c3c;">
+            <i class="fas fa-exclamation-triangle"></i> Error: ${error.message}
+        </td></tr>`;
     }
 }
 
 // ========= FUNCIONES DE ANÁLISIS MEJORADAS =========
 async function obtenerSalidasCompletas(dias) {
+    if (!db) {
+        throw new Error("Base de datos no disponible");
+    }
+
     const fechaLimite = new Date();
     fechaLimite.setDate(fechaLimite.getDate() - dias);
     
@@ -227,6 +251,10 @@ async function obtenerSalidasCompletas(dias) {
 }
 
 async function obtenerEntradasCompletas(dias) {
+    if (!db) {
+        throw new Error("Base de datos no disponible");
+    }
+
     const fechaLimite = new Date();
     fechaLimite.setDate(fechaLimite.getDate() - dias);
     
@@ -246,6 +274,10 @@ async function obtenerEntradasCompletas(dias) {
 }
 
 async function obtenerStockActualCompleto() {
+    if (!db) {
+        throw new Error("Base de datos no disponible");
+    }
+
     const snapshot = await db.collection('inventario').get();
     const stockMap = new Map();
     
@@ -609,11 +641,327 @@ function mostrarApartadoIA() {
     document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
     document.querySelector('.nav-link[onclick*="ia"]').classList.add('active');
     
+    // Precargar librería PDF
+    cargarLibreriaPDF().catch(() => {
+        console.warn('No se pudo cargar la librería PDF');
+    });
+    
     // Inicializar IA
     setTimeout(() => {
         inicializarIA();
         calcularIAStockMejorado();
     }, 500);
+}
+
+// ========= EXPORTAR REPORTE IA A PDF =========
+a// ========= EXPORTAR REPORTE IA A PDF - VERSIÓN CORREGIDA =========
+async function exportarIAPDF() {
+    try {
+        // Verificar que jsPDF esté disponible
+        if (typeof window.jspdf === 'undefined') {
+            alert("⚠️ Cargando librería PDF... Por favor espere.");
+            await cargarLibreriaPDF();
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+        
+        // Configuración inicial
+        const margin = 15;
+        let yPosition = margin;
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        
+        // ===== ENCABEZADO =====
+        doc.setFillColor(21, 85, 232);
+        doc.rect(0, 0, pageWidth, 25, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('REPORTE IA - PREDICCION DE STOCK', pageWidth / 2, 15, { align: 'center' });
+        
+        doc.setFontSize(10);
+        doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')}`, pageWidth / 2, 22, { align: 'center' });
+        
+        yPosition = 35;
+        
+        // ===== MÉTRICAS PRINCIPALES =====
+        doc.setFillColor(245, 245, 245);
+        doc.rect(margin, yPosition, pageWidth - 2 * margin, 40, 'F');
+        
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('METRICAS DEL SISTEMA', margin + 5, yPosition + 10);
+        
+        // Obtener métricas actuales
+        const metricasContainer = document.getElementById('metricas-ia');
+        if (metricasContainer) {
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            
+            const totalProductos = metricasContainer.querySelector('.metrica-card:nth-child(1) .metrica-valor')?.textContent || '0';
+            const productosCriticos = metricasContainer.querySelector('.metrica-card:nth-child(2) .metrica-valor')?.textContent || '0';
+            const productosAlerta = metricasContainer.querySelector('.metrica-card:nth-child(3) .metrica-valor')?.textContent || '0';
+            const productosEstables = metricasContainer.querySelector('.metrica-card:nth-child(4) .metrica-valor')?.textContent || '0';
+            const inversionStock = metricasContainer.querySelector('.metrica-card:nth-child(5) .metrica-valor')?.textContent || 'S/ 0.00';
+            const riesgoPotencial = metricasContainer.querySelector('.metrica-card:nth-child(6) .metrica-valor')?.textContent || 'S/ 0.00';
+            
+            const metricas = [
+                `Total Productos Analizados: ${totalProductos}`,
+                `Productos Criticos: ${productosCriticos}`,
+                `Productos en Alerta: ${productosAlerta}`,
+                `Productos Estables: ${productosEstables}`,
+                `Inversion en Stock: ${inversionStock}`,
+                `Riesgo Potencial: ${riesgoPotencial}`
+            ];
+            
+            metricas.forEach((metrica, index) => {
+                const x = margin + 5 + (index % 2) * 90;
+                const y = yPosition + 20 + Math.floor(index / 2) * 8;
+                doc.text(metrica, x, y);
+            });
+        }
+        
+        yPosition += 50;
+        
+        // ===== ALERTAS =====
+        const alertasContainer = document.getElementById('alertas-ia');
+        if (alertasContainer && alertasContainer.innerHTML.trim() !== '') {
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(231, 76, 60);
+            doc.text('ALERTAS PRIORITARIAS', margin, yPosition);
+            
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(0, 0, 0);
+            
+            const alertas = alertasContainer.querySelectorAll('.alerta-item');
+            let alertaY = yPosition + 10;
+            
+            alertas.forEach((alerta) => {
+                if (alertaY > pageHeight - 30) {
+                    doc.addPage();
+                    alertaY = margin + 10;
+                }
+                
+                const texto = alerta.querySelector('span')?.textContent || '';
+                // Limpiar texto de caracteres especiales
+                const textoLimpio = texto.replace(/[^\x20-\x7E]/g, '');
+                
+                doc.text(`• ${textoLimpio}`, margin + 5, alertaY);
+                alertaY += 6;
+            });
+            
+            yPosition = alertaY + 10;
+        } else {
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text('No hay alertas criticas', margin, yPosition);
+            yPosition += 15;
+        }
+        
+        // ===== RECOMENDACIONES DETALLADAS =====
+        if (yPosition > pageHeight - 50) {
+            doc.addPage();
+            yPosition = margin;
+        }
+        
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(21, 85, 232);
+        doc.text('RECOMENDACIONES DE COMPRA INTELIGENTES', margin, yPosition);
+        yPosition += 10;
+        
+        // Obtener datos de la tabla
+        const tabla = document.getElementById('tabla-ia-resultados');
+        const filas = tabla?.querySelectorAll('tbody tr') || [];
+        
+        if (filas.length === 0) {
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text('No hay datos para mostrar. Ejecute el analisis IA primero.', margin, yPosition);
+        } else {
+            // Configurar columnas más ajustadas
+            const columnas = [
+                { header: 'Producto', width: 45 },
+                { header: 'Stock', width: 12 },
+                { header: 'Dem/Dia', width: 15 },
+                { header: 'Cobert', width: 15 },
+                { header: 'P.Pedido', width: 15 },
+                { header: 'Estado', width: 18 },
+                { header: 'Cant.', width: 12 },
+                { header: 'Accion', width: 25 }
+            ];
+            
+            // Encabezados de tabla
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(255, 255, 255);
+            doc.setFillColor(44, 90, 160);
+            
+            let xPosition = margin;
+            columnas.forEach(col => {
+                doc.rect(xPosition, yPosition, col.width, 6, 'F');
+                // Centrar texto en encabezados
+                const textWidth = doc.getTextWidth(col.header);
+                doc.text(col.header, xPosition + (col.width - textWidth) / 2, yPosition + 4);
+                xPosition += col.width;
+            });
+            
+            yPosition += 6;
+            
+            // Datos de la tabla
+            doc.setFontSize(6);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(0, 0, 0);
+            
+            filas.forEach((fila) => {
+                if (yPosition > pageHeight - 15) {
+                    doc.addPage();
+                    yPosition = margin;
+                    
+                    // Repetir encabezados en nueva página
+                    doc.setFillColor(44, 90, 160);
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(7);
+                    let x = margin;
+                    columnas.forEach(col => {
+                        doc.rect(x, yPosition, col.width, 6, 'F');
+                        const textWidth = doc.getTextWidth(col.header);
+                        doc.text(col.header, x + (col.width - textWidth) / 2, yPosition + 4);
+                        x += col.width;
+                    });
+                    yPosition += 6;
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(6);
+                    doc.setTextColor(0, 0, 0);
+                }
+                
+                const celdas = fila.querySelectorAll('td');
+                if (celdas.length >= 8) {
+                    xPosition = margin;
+                    
+                    // Producto (recortar si es muy largo)
+                    let producto = celdas[0].querySelector('strong')?.textContent || celdas[0].textContent || '';
+                    producto = producto.replace(/[^\x20-\x7E]/g, ''); // Limpiar caracteres especiales
+                    if (producto.length > 25) producto = producto.substring(0, 22) + '...';
+                    doc.text(producto, xPosition + 2, yPosition + 4);
+                    xPosition += columnas[0].width;
+                    
+                    // Stock Actual
+                    const stock = celdas[1].textContent || '0';
+                    doc.text(stock, xPosition + 2, yPosition + 4);
+                    xPosition += columnas[1].width;
+                    
+                    // Demanda Diaria
+                    const demanda = celdas[2].textContent || '0';
+                    doc.text(demanda, xPosition + 2, yPosition + 4);
+                    xPosition += columnas[2].width;
+                    
+                    // Cobertura Días
+                    const cobertura = celdas[3].textContent || '0';
+                    doc.text(cobertura, xPosition + 2, yPosition + 4);
+                    xPosition += columnas[3].width;
+                    
+                    // Punto Pedido
+                    const puntoPedido = celdas[4].textContent || '0';
+                    doc.text(puntoPedido, xPosition + 2, yPosition + 4);
+                    xPosition += columnas[4].width;
+                    
+                    // Criticidad (limpiar emojis)
+                    let criticidad = celdas[6].textContent || '';
+                    criticidad = criticidad.replace(/[^\x20-\x7E]/g, '') // Remover emojis
+                                          .replace('CRITICO', 'CRIT')
+                                          .replace('ALTO RIESGO', 'ALTO')
+                                          .replace('ALERTA', 'ALERT')
+                                          .replace('VIGILAR', 'VIGIL')
+                                          .replace('ESTABLE', 'EST');
+                    if (criticidad.length > 8) criticidad = criticidad.substring(0, 7);
+                    doc.text(criticidad, xPosition + 2, yPosition + 4);
+                    xPosition += columnas[5].width;
+                    
+                    // Cantidad Recomendada
+                    const cantidad = celdas[7].textContent || '-';
+                    doc.text(cantidad, xPosition + 2, yPosition + 4);
+                    xPosition += columnas[6].width;
+                    
+                    // Acción Recomendada
+                    let accion = celdas[8].textContent || '';
+                    accion = accion.replace(/[^\x20-\x7E]/g, '') // Remover emojis
+                                  .replace('COMPRA URGENTE', 'URGENTE')
+                                  .replace('COMPRA PROGRAMADA', 'PROGRAMADA')
+                                  .replace('REPONER STOCK', 'REPONER')
+                                  .replace('Stock suficiente', 'OK');
+                    if (accion.length > 15) accion = accion.substring(0, 12) + '...';
+                    doc.text(accion, xPosition + 2, yPosition + 4);
+                    
+                    // Línea separadora
+                    doc.setDrawColor(200, 200, 200);
+                    doc.line(margin, yPosition + 5, pageWidth - margin, yPosition + 5);
+                    
+                    yPosition += 6;
+                }
+            });
+        }
+        
+        // ===== PIE DE PÁGINA =====
+        const totalPaginas = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPaginas; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Pagina ${i} de ${totalPaginas}`, pageWidth - margin - 5, pageHeight - 10, { align: 'right' });
+            doc.text('Sistema de Inventario - IA Predictiva', margin + 5, pageHeight - 10);
+        }
+        
+        // ===== GUARDAR PDF =====
+        const fecha = new Date().toISOString().split('T')[0];
+        doc.save(`Reporte_IA_Prediccion_${fecha}.pdf`);
+        
+        alert('✅ PDF generado exitosamente!');
+        
+    } catch (error) {
+        console.error('Error al generar PDF:', error);
+        alert('❌ Error al generar el PDF: ' + error.message);
+    }
+}
+
+// ===== CARGAR LIBRERÍA PDF DINÁMICAMENTE =====
+function cargarLibreriaPDF() {
+    return new Promise((resolve, reject) => {
+        if (typeof window.jspdf !== 'undefined') {
+            resolve();
+            return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.onload = () => {
+            setTimeout(resolve, 500); // Pequeño delay para asegurar carga
+        };
+        script.onerror = () => reject(new Error('Error al cargar librería PDF'));
+        document.head.appendChild(script);
+    });
+}
+
+// ===== CARGAR LIBRERÍA PDF DINÁMICAMENTE =====
+function cargarLibreriaPDF() {
+    return new Promise((resolve, reject) => {
+        if (typeof window.jspdf !== 'undefined') {
+            resolve();
+            return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Error al cargar librería PDF'));
+        document.head.appendChild(script);
+    });
 }
 
 // ========= INICIALIZACIÓN MEJORADA =========

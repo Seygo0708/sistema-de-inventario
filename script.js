@@ -869,12 +869,12 @@ function filtrarRepuestosMecanicoPorNombre() {
     });
 }
 
-async function exportarExcel() {
+async function exportarPDF() {
     alert("Generando reporte... Esto puede tardar unos segundos.");
     
     if (!db) {
         alert("El sistema no está listo para exportar. Intente nuevamente.");
-        console.error("Firestore no está inicializado (exportarExcel)");
+        console.error("Firestore no está inicializado (exportarPDF)");
         return;
     }
 
@@ -1502,187 +1502,89 @@ function getChartOptions(title, yAxisLabel, isMultiLine = false) {
 }
 
 // ====== VERSIÓN ALTERNATIVA MÁS SIMPLE ======
-async function exportarReporteExcel() {
-    alert("Generando reporte en Excel... Esto puede tardar unos segundos.");
-    
-    if (!db) {
-        alert("El sistema no está listo para exportar. Intente nuevamente.");
-        return;
-    }
+async function exportarGraficosPDF() {
+    alert("Generando PDF...");
 
     try {
-        // Crear un nuevo workbook
-        const wb = XLSX.utils.book_new();
-        
-        // Obtener datos de todas las colecciones
-        const [inventarioSnapshot, entradasSnapshot, salidasSnapshot, solicitudesSnapshot] = await Promise.all([
-            db.collection('inventario').get(),
-            db.collection('historialEntradas').get(),
-            db.collection('repuestosSalida').get(),
-            db.collection('solicitudesRepuestos').get()
-        ]);
+        // Verifica que jsPDF esté disponible
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            alert("⚠️ Falta la librería jsPDF. Agrega el <script> antes de script.js en tu HTML.");
+            return;
+        }
 
-        // ====== HOJA 1: RESUMEN EJECUTIVO ======
-        const datosResumen = [
-            ['REPORTE DE INVENTARIO - RESUMEN EJECUTIVO'],
-            ['Generado:', new Date().toLocaleDateString('es-ES')],
-            [''],
-            ['ESTADÍSTICAS PRINCIPALES'],
-            ['Total Productos en Inventario:', inventarioSnapshot.size],
-            ['Productos con Stock Bajo:', inventarioSnapshot.docs.filter(doc => doc.data().stock <= 5).length],
-            ['Total Entradas Registradas:', entradasSnapshot.size],
-            ['Total Salidas Registradas:', salidasSnapshot.size],
-            ['Solicitudes Pendientes:', solicitudesSnapshot.docs.filter(doc => doc.data().estado === 'Pendiente').length],
-            [''],
-            ['VALOR TOTAL DEL INVENTARIO'],
-            ['Valor en Stock (S/):', inventarioSnapshot.docs.reduce((sum, doc) => {
-                const item = doc.data();
-                return sum + (item.stock * parseFloat(item.costoUnitario || 0));
-            }, 0).toFixed(2)]
+        // Inicializa jsPDF
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4'); // A4 vertical
+
+        // ====== ENCABEZADO ======
+        const fecha = new Date().toLocaleDateString('es-ES');
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(67, 97, 238); // Azul título
+        doc.setFontSize(16);
+        doc.text('Reporte de Gráficos - Sistema de Inventario', 105, 15, { align: 'center' });
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        doc.setTextColor(85, 85, 85);
+        doc.text(`Generado: ${fecha}`, 105, 22, { align: 'center' });
+
+        // ====== GRÁFICOS (en cuadrícula 2x2) ======
+        const charts = [
+            { id: 'chartMovimientosDia',       titulo: 'Movimientos por Día' },
+            { id: 'chartProductosMovimientos', titulo: 'Productos con Más Movimientos' },
+            { id: 'chartDistribucionStock',    titulo: 'Distribución de Stock' },
+            { id: 'chartTendenciaMensual',     titulo: 'Tendencia Mensual' }
         ];
 
-        const wsResumen = XLSX.utils.aoa_to_sheet(datosResumen);
-        
-        // Formato de la hoja de resumen
-        wsResumen['!cols'] = [
-            { width: 30 },
-            { width: 20 }
+        // Medidas del layout
+        const marginX = 12;
+        const marginTop = 30;
+        const gap = 6;
+        const cellW = 90;
+        const cellH = 85;
+
+        // Posiciones exactas en mm (para que quepan perfectamente en A4)
+        const positions = [
+            { x: marginX, y: marginTop },                          // Arriba izquierda
+            { x: marginX + cellW + gap, y: marginTop },            // Arriba derecha
+            { x: marginX, y: marginTop + cellH + gap },            // Abajo izquierda
+            { x: marginX + cellW + gap, y: marginTop + cellH + gap } // Abajo derecha
         ];
 
-        // ====== HOJA 2: INVENTARIO COMPLETO ======
-        const datosInventario = [
-            ['INVENTARIO COMPLETO'],
-            ['Fecha', 'Código', 'Nombre', 'Lote', 'Costo Unitario (S/.)', 'Precio Venta (S/.)', 'Stock', 'Valor Total (S/.)']
-        ];
+        // ====== DIBUJAR CADA GRÁFICO ======
+        for (let i = 0; i < charts.length; i++) {
+            const { id, titulo } = charts[i];
+            const { x, y } = positions[i];
+            const canvas = document.getElementById(id);
+            if (!canvas) continue;
 
-        inventarioSnapshot.forEach(doc => {
-            const item = doc.data();
-            const valorTotal = (item.stock * parseFloat(item.costoUnitario || 0)).toFixed(2);
-            datosInventario.push([
-                item.fechaActualizacion || 'N/A',
-                item.codigo,
-                item.nombre,
-                item.lote || 'N/A',
-                parseFloat(item.costoUnitario).toFixed(2),
-                parseFloat(item.precioVenta).toFixed(2),
-                item.stock,
-                valorTotal
-            ]);
-        });
+            // Título encima del gráfico
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(21, 85, 232);
+            doc.text(titulo, x + cellW / 2, y - 3, { align: 'center' });
 
-        const wsInventario = XLSX.utils.aoa_to_sheet(datosInventario);
+            // Imagen del canvas
+            const imgData = canvas.toDataURL('image/png', 1.0);
+            doc.addImage(imgData, 'PNG', x, y, cellW, cellH);
+        }
 
-        // ====== HOJA 3: MOVIMIENTOS ======
-        const datosMovimientos = [
-            ['REGISTRO DE MOVIMIENTOS'],
-            ['Tipo', 'Fecha', 'Producto/Repuesto', 'Cantidad', 'Cliente/Proveedor', 'N° OT', 'Detalles']
-        ];
+        // ====== PIE DE PÁGINA ======
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(130, 130, 130);
+        doc.text('Sistema de Inventario – Generado automáticamente', 105, 290, { align: 'center' });
 
-        // Agregar entradas
-        entradasSnapshot.forEach(doc => {
-            const item = doc.data();
-            datosMovimientos.push([
-                'ENTRADA',
-                item.fecha,
-                item.nombre,
-                item.cantidad,
-                'PROVEEDOR',
-                'N/A',
-                `Código: ${item.codigo}`
-            ]);
-        });
-
-        // Agregar salidas
-        salidasSnapshot.forEach(doc => {
-            const item = doc.data();
-            datosMovimientos.push([
-                'SALIDA',
-                item.fecha,
-                item.repuesto,
-                item.cantidad,
-                item.cliente,
-                item.numeroOT,
-                `Placa: ${item.placa || 'N/A'}, KM: ${item.kilometraje || 'N/A'}`
-            ]);
-        });
-
-        const wsMovimientos = XLSX.utils.aoa_to_sheet(datosMovimientos);
-
-        // ====== HOJA 4: SOLICITUDES ======
-        const datosSolicitudes = [
-            ['SOLICITUDES DE REPUESTOS'],
-            ['Fecha', 'Mecánico', 'Repuesto', 'Cantidad', 'Estado', 'Código']
-        ];
-
-        solicitudesSnapshot.forEach(doc => {
-            const solicitud = doc.data();
-            datosSolicitudes.push([
-                solicitud.fecha,
-                solicitud.mecanico,
-                solicitud.repuesto,
-                solicitud.cantidad,
-                solicitud.estado,
-                solicitud.codigo || 'N/A'
-            ]);
-        });
-
-        const wsSolicitudes = XLSX.utils.aoa_to_sheet(datosSolicitudes);
-
-        // ====== HOJA 5: ANÁLISIS DE STOCK ======
-        const datosAnalisis = [
-            ['ANÁLISIS DE STOCK'],
-            ['Categoría', 'Cantidad', 'Porcentaje'],
-            ['Stock Crítico (≤ 2)', 0, '0%'],
-            ['Stock Bajo (3-5)', 0, '0%'],
-            ['Stock Normal (6-20)', 0, '0%'],
-            ['Stock Alto (>20)', 0, '0%']
-        ];
-
-        // Calcular categorías de stock
-        let stockCritico = 0, stockBajo = 0, stockNormal = 0, stockAlto = 0;
-        
-        inventarioSnapshot.forEach(doc => {
-            const stock = doc.data().stock;
-            if (stock <= 2) stockCritico++;
-            else if (stock <= 5) stockBajo++;
-            else if (stock <= 20) stockNormal++;
-            else stockAlto++;
-        });
-
-        const totalProductos = inventarioSnapshot.size;
-        
-        datosAnalisis[2][1] = stockCritico;
-        datosAnalisis[2][2] = ((stockCritico / totalProductos) * 100).toFixed(1) + '%';
-        
-        datosAnalisis[3][1] = stockBajo;
-        datosAnalisis[3][2] = ((stockBajo / totalProductos) * 100).toFixed(1) + '%';
-        
-        datosAnalisis[4][1] = stockNormal;
-        datosAnalisis[4][2] = ((stockNormal / totalProductos) * 100).toFixed(1) + '%';
-        
-        datosAnalisis[5][1] = stockAlto;
-        datosAnalisis[5][2] = ((stockAlto / totalProductos) * 100).toFixed(1) + '%';
-
-        const wsAnalisis = XLSX.utils.aoa_to_sheet(datosAnalisis);
-
-        // ====== AGREGAR HOJAS AL WORKBOOK ======
-        XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen Ejecutivo');
-        XLSX.utils.book_append_sheet(wb, wsInventario, 'Inventario Completo');
-        XLSX.utils.book_append_sheet(wb, wsMovimientos, 'Movimientos');
-        XLSX.utils.book_append_sheet(wb, wsSolicitudes, 'Solicitudes');
-        XLSX.utils.book_append_sheet(wb, wsAnalisis, 'Análisis Stock');
-
-        // ====== GENERAR ARCHIVO ======
-        const fecha = new Date().toISOString().slice(0, 10);
-        XLSX.writeFile(wb, `Reporte_Inventario_${fecha}.xlsx`);
-        
-        alert("✅ Reporte de Excel generado exitosamente!\n\nEl archivo contiene:\n• Resumen Ejecutivo\n• Inventario Completo\n• Movimientos\n• Solicitudes\n• Análisis de Stock");
+        // ====== GUARDAR ======
+        doc.save('reporte_graficos.pdf');
+        alert("✅ PDF generado correctamente en una sola hoja.");
 
     } catch (error) {
-        console.error("Error al generar reporte Excel:", error);
-        alert("❌ Error al generar el reporte de Excel. Por favor, intente nuevamente.");
+        console.error("Error al generar PDF:", error);
+        alert("❌ Error al generar el PDF. Revisa la consola (F12).");
     }
 }
+
 
 // Función para calcular fecha límite según período
 // ====== FUNCIÓN CORREGIDA PARA CALCULAR FECHA LÍMITE ======

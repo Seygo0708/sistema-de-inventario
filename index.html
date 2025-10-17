@@ -128,8 +128,15 @@
                                     <span>Reportes</span>
                                 </a>
                             </li>
+                                <li>
+        <a href="#" onclick="mostrarApartado('ia')" class="nav-link">
+            <i class="fas fa-robot"></i>
+            <span>IA Inteligente</span>
+        </a>
+    </li>
+    </ul>
                             <li>
-                                <a href="#" onclick="exportarExcel()" class="nav-link">
+                                <a href="#" onclick="exportarexcel()" class="nav-link">
                                     <i class="fas fa-file-excel"></i>
                                     <span>Exportar Excel</span>
                                 </a>
@@ -552,8 +559,8 @@
             <button class="btn btn-primary" onclick="generarReportes()">
                 <i class="fas fa-sync-alt"></i> Actualizar Reportes
             </button>
-            <button class="btn btn-success" onclick="exportarReporteExcel()">
-    <i class="fas fa-file-excel"></i> Exportar Excel
+            <button class="btn btn-danger" onclick="exportarGraficosPDF()">
+    <i class="fas fa-file-pdf"></i> Exportar PDF
 </button>
         </div>
     </div>
@@ -716,6 +723,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

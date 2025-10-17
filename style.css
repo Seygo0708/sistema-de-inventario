@@ -1376,6 +1376,220 @@ tbody tr {
 .filter-buttons .btn-danger { background-color: #f72585; }
 
 
+/* ====== ESTILOS PARA IA MEJORADA ====== */
+.metricas-container {
+    margin-bottom: 25px;
+}
+
+.metricas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.metrica-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    border-left: 4px solid var(--primary);
+}
+
+.metrica-card.critica {
+    border-left-color: #e74c3c;
+    background: linear-gradient(135deg, #fff 0%, #ffeaea 100%);
+}
+
+.metrica-card.alerta {
+    border-left-color: #f39c12;
+    background: linear-gradient(135deg, #fff 0%, #fff4e6 100%);
+}
+
+.metrica-card.estable {
+    border-left-color: #27ae60;
+    background: linear-gradient(135deg, #fff 0%, #e8f7ee 100%);
+}
+
+.metrica-card.riesgo {
+    border-left-color: #9b59b6;
+    background: linear-gradient(135deg, #fff 0%, #f4e6ff 100%);
+}
+
+.metrica-valor {
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--primary);
+    margin-bottom: 5px;
+}
+
+.metrica-card.critica .metrica-valor {
+    color: #e74c3c;
+}
+
+.metrica-card.alerta .metrica-valor {
+    color: #f39c12;
+}
+
+.metrica-card.estable .metrica-valor {
+    color: #27ae60;
+}
+
+.metrica-card.riesgo .metrica-valor {
+    color: #9b59b6;
+}
+
+.metrica-label {
+    font-size: 14px;
+    color: var(--gray);
+    font-weight: 500;
+}
+
+.alertas-principales {
+    margin-bottom: 25px;
+}
+
+.alertas-container {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.alertas-container h4 {
+    color: var(--primary);
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+.alerta-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border-left: 4px solid;
+}
+
+.alerta-item.critica {
+    background: #ffeaea;
+    border-left-color: #e74c3c;
+    color: #c0392b;
+}
+
+.alerta-item.advertencia {
+    background: #fff4e6;
+    border-left-color: #f39c12;
+    color: #e67e22;
+}
+
+.alerta-item.info {
+    background: #e8f4fd;
+    border-left-color: #3498db;
+    color: #2980b9;
+}
+
+.alerta-item i {
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+.action-buttons-ia {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.action-buttons-ia .btn {
+    flex: 1;
+}
+
+/* Estilos para tabla de IA */
+.fila-criticidad-crtico {
+    background: #ffeaea !important;
+    border-left: 4px solid #e74c3c;
+}
+
+.fila-criticidad-alto-riesgo {
+    background: #fff4e6 !important;
+    border-left: 4px solid #f39c12;
+}
+
+.fila-criticidad-alerta {
+    background: #fff9e6 !important;
+    border-left: 4px solid #f1c40f;
+}
+
+.fila-criticidad-vigilar {
+    background: #e8f4fd !important;
+    border-left: 4px solid #3498db;
+}
+
+.fila-criticidad-estable {
+    background: #e8f7ee !important;
+    border-left: 4px solid #27ae60;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.badge.criticidad-crtico {
+    background: #e74c3c;
+    color: white;
+}
+
+.badge.criticidad-alto-riesgo {
+    background: #f39c12;
+    color: white;
+}
+
+.badge.criticidad-alerta {
+    background: #f1c40f;
+    color: white;
+}
+
+.badge.criticidad-vigilar {
+    background: #3498db;
+    color: white;
+}
+
+.badge.criticidad-estable {
+    background: #27ae60;
+    color: white;
+}
+
+.tendencia {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.tendencia-alta {
+    background: #e8f7ee;
+    color: #27ae60;
+}
+
+.tendencia-baja {
+    background: #ffeaea;
+    color: #e74c3c;
+}
+
+.tendencia-estable {
+    background: #e8f4fd;
+    color: #3498db;
+}
+
+.text-muted {
+    color: var(--gray) !important;
+    font-size: 12px;
+}
+
 /* ====== ESTILOS PARA IMPRESIÓN ====== */
 @media print {
     .sidebar,

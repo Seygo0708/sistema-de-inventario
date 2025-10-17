@@ -159,6 +159,623 @@ function mostrarApartado(nombre) {
 }
     }
 }
+//// ========= SISTEMA IA MEJORADO - PREDICCIÓN INTELIGENTE =========
+function inicializarIA() {
+    document.getElementById('ia-dias-analisis').value = 60;
+    document.getElementById('ia-dias-cobertura').value = 45;
+    document.getElementById('ia-leadtime').value = 7;
+    document.getElementById('ia-seguridad').value = 25;
+    document.getElementById('ia-stock-minimo').value = 3;
+}
+
+async function calcularIAStockMejorado() {
+    const diasAnalisis  = Number(document.getElementById('ia-dias-analisis').value || 60);
+    const diasCobertura = Number(document.getElementById('ia-dias-cobertura').value || 45);
+    const leadTime      = Number(document.getElementById('ia-leadtime').value || 7);
+    const seguridadPct  = Number(document.getElementById('ia-seguridad').value || 25) / 100;
+    const stockMinimo   = Number(document.getElementById('ia-stock-minimo').value || 3);
+
+    try {
+        // Obtener datos completos
+        const [salidasData, entradasData, stockData] = await Promise.all([
+            obtenerSalidasCompletas(diasAnalisis),
+            obtenerEntradasCompletas(diasAnalisis),
+            obtenerStockActualCompleto()
+        ]);
+
+        // Procesar análisis avanzado
+        const analisis = await analisisAvanzadoStock(
+            salidasData, 
+            entradasData, 
+            stockData, 
+            diasAnalisis,
+            diasCobertura,
+            leadTime,
+            seguridadPct,
+            stockMinimo
+        );
+
+        // Mostrar resultados
+        mostrarResultadosIA(analisis);
+        mostrarMetricasIA(analisis.metricas);
+        generarAlertasIA(analisis.alertas);
+
+    } catch (error) {
+        console.error("Error en IA:", error);
+        alert("❌ Error al calcular predicciones: " + error.message);
+    }
+}
+
+// ========= FUNCIONES DE ANÁLISIS MEJORADAS =========
+async function obtenerSalidasCompletas(dias) {
+    const fechaLimite = new Date();
+    fechaLimite.setDate(fechaLimite.getDate() - dias);
+    
+    const snapshot = await db.collection('repuestosSalida')
+        .where('fecha', '>=', fechaLimite.toISOString().split('T')[0])
+        .get();
+    
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            fecha: new Date(data.fecha),
+            producto: data.repuesto,
+            cantidad: data.cantidad,
+            tipo: 'salida'
+        };
+    });
+}
+
+async function obtenerEntradasCompletas(dias) {
+    const fechaLimite = new Date();
+    fechaLimite.setDate(fechaLimite.getDate() - dias);
+    
+    const snapshot = await db.collection('historialEntradas')
+        .where('fecha', '>=', fechaLimite.toISOString().split('T')[0])
+        .get();
+    
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            fecha: new Date(data.fecha),
+            producto: data.nombre,
+            cantidad: data.cantidad,
+            tipo: 'entrada'
+        };
+    });
+}
+
+async function obtenerStockActualCompleto() {
+    const snapshot = await db.collection('inventario').get();
+    const stockMap = new Map();
+    
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        stockMap.set(data.nombre, {
+            stock: data.stock,
+            costo: parseFloat(data.costoUnitario || 0),
+            precio: parseFloat(data.precioVenta || 0),
+            codigo: data.codigo,
+            fechaActualizacion: data.fechaActualizacion
+        });
+    });
+    
+    return stockMap;
+}
+
+function analisisAvanzadoStock(salidas, entradas, stockMap, diasAnalisis, diasCobertura, leadTime, seguridadPct, stockMinimo) {
+    const productos = new Set([
+        ...salidas.map(s => s.producto),
+        ...entradas.map(e => e.producto),
+        ...Array.from(stockMap.keys())
+    ]);
+
+    const resultados = [];
+    let metricas = {
+        totalProductos: 0,
+        productosCriticos: 0,
+        productosAlerta: 0,
+        productosEstables: 0,
+        inversionTotal: 0,
+        riesgoTotal: 0
+    };
+
+    productos.forEach(producto => {
+        const movimientosProducto = [
+            ...salidas.filter(s => s.producto === producto),
+            ...entradas.filter(e => e.producto === producto)
+        ].sort((a, b) => a.fecha - b.fecha);
+
+        const stockActual = stockMap.get(producto)?.stock || 0;
+        const costoUnitario = stockMap.get(producto)?.costo || 0;
+        
+        // Análisis de tendencia
+        const tendencia = calcularTendencia(movimientosProducto, diasAnalisis);
+        const estacionalidad = detectarEstacionalidad(movimientosProducto);
+        const velocidadConsumo = calcularVelocidadConsumo(movimientosProducto, diasAnalisis);
+        
+        // Cálculos mejorados
+        const demandaDiaria = calcularDemandaDiaria(movimientosProducto, diasAnalisis);
+        const variabilidad = calcularVariabilidadDemanda(movimientosProducto, demandaDiaria);
+        const puntoPedido = calcularPuntoPedido(demandaDiaria, leadTime, variabilidad, seguridadPct);
+        const coberturaDias = stockActual / Math.max(demandaDiaria, 0.1);
+        
+        // Clasificación de criticidad
+        const criticidad = clasificarCriticidad(
+            stockActual, 
+            puntoPedido, 
+            coberturaDias, 
+            velocidadConsumo,
+            stockMinimo
+        );
+
+        // Recomendación inteligente
+        const recomendacion = generarRecomendacion(
+            stockActual,
+            demandaDiaria,
+            diasCobertura,
+            puntoPedido,
+            criticidad,
+            estacionalidad
+        );
+
+        // Actualizar métricas
+        metricas.totalProductos++;
+        if (criticidad.nivel === '🚨 CRÍTICO') metricas.productosCriticos++;
+        if (criticidad.nivel === '⚠️ ALTO RIESGO') metricas.productosAlerta++;
+        if (criticidad.nivel === '✅ ESTABLE') metricas.productosEstables++;
+        
+        metricas.inversionTotal += stockActual * costoUnitario;
+        if (criticidad.nivel === '🚨 CRÍTICO') {
+            metricas.riesgoTotal += demandaDiaria * diasCobertura * costoUnitario;
+        }
+
+        resultados.push({
+            producto,
+            codigo: stockMap.get(producto)?.codigo || 'N/A',
+            stockActual,
+            demandaDiaria: demandaDiaria.toFixed(2),
+            coberturaDias: coberturaDias.toFixed(1),
+            puntoPedido: Math.ceil(puntoPedido),
+            tendencia: tendencia.direccion,
+            velocidadConsumo,
+            variabilidad: (variabilidad * 100).toFixed(1) + '%',
+            criticidad: criticidad.nivel,
+            recomendacion: recomendacion.texto,
+            cantidadRecomendada: recomendacion.cantidad,
+            prioridad: criticidad.prioridad,
+            costoEstimado: (recomendacion.cantidad * costoUnitario).toFixed(2)
+        });
+    });
+
+    // Ordenar por prioridad y criticidad
+    resultados.sort((a, b) => b.prioridad - a.prioridad);
+
+    // Generar alertas
+    const alertas = generarAlertas(resultados);
+
+    return { resultados, metricas, alertas };
+}
+
+// ========= ALGORITMOS DE ANÁLISIS MEJORADOS =========
+function calcularTendencia(movimientos, dias) {
+    if (movimientos.length < 7) return { direccion: '➡️ ESTABLE', fuerza: 0 };
+    
+    const ultimaSemana = movimientos.filter(m => 
+        m.fecha >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    );
+    const semanaAnterior = movimientos.filter(m => 
+        m.fecha >= new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) && 
+        m.fecha < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    );
+    
+    const consumoActual = ultimaSemana.reduce((sum, m) => sum + (m.tipo === 'salida' ? m.cantidad : -m.cantidad), 0);
+    const consumoAnterior = semanaAnterior.reduce((sum, m) => sum + (m.tipo === 'salida' ? m.cantidad : -m.cantidad), 0);
+    
+    const diferencia = consumoActual - consumoAnterior;
+    const porcentaje = consumoAnterior > 0 ? (diferencia / consumoAnterior) * 100 : 0;
+    
+    if (Math.abs(porcentaje) > 30) {
+        return { direccion: porcentaje > 0 ? '📈 ALTA' : '📉 BAJA', fuerza: Math.abs(porcentaje) };
+    }
+    
+    return { direccion: '➡️ ESTABLE', fuerza: Math.abs(porcentaje) };
+}
+
+function detectarEstacionalidad(movimientos) {
+    if (movimientos.length < 30) return 'NO_DATOS';
+    
+    // Agrupar por día de la semana
+    const porDia = [0, 0, 0, 0, 0, 0, 0];
+    movimientos.forEach(m => {
+        if (m.tipo === 'salida') {
+            const dia = m.fecha.getDay();
+            porDia[dia] += m.cantidad;
+        }
+    });
+    
+    const max = Math.max(...porDia);
+    const min = Math.min(...porDia);
+    const variacion = (max - min) / (max || 1);
+    
+    return variacion > 0.5 ? 'ESTACIONAL' : 'CONSTANTE';
+}
+
+function calcularVelocidadConsumo(movimientos, dias) {
+    const salidas = movimientos.filter(m => m.tipo === 'salida');
+    const totalSalidas = salidas.reduce((sum, m) => sum + m.cantidad, 0);
+    const consumoDiario = totalSalidas / dias;
+    
+    if (consumoDiario < 1) return 'LENTO';
+    if (consumoDiario < 5) return 'MODERADO';
+    return 'RÁPIDO';
+}
+
+function calcularDemandaDiaria(movimientos, dias) {
+    const salidas = movimientos.filter(m => m.tipo === 'salida');
+    const totalSalidas = salidas.reduce((sum, m) => sum + m.cantidad, 0);
+    return totalSalidas / dias;
+}
+
+function calcularVariabilidadDemanda(movimientos, demandaPromedio) {
+    if (movimientos.length < 2 || demandaPromedio === 0) return 0;
+    
+    const salidas = movimientos.filter(m => m.tipo === 'salida');
+    const diferencias = salidas.map(m => Math.pow(m.cantidad - demandaPromedio, 2));
+    const varianza = diferencias.reduce((a, b) => a + b, 0) / salidas.length;
+    
+    return Math.sqrt(varianza) / demandaPromedio;
+}
+
+function calcularPuntoPedido(demandaDiaria, leadTime, variabilidad, seguridad) {
+    const demandaLeadTime = demandaDiaria * leadTime;
+    const stockSeguridad = demandaLeadTime * variabilidad * seguridad;
+    return Math.ceil(demandaLeadTime + stockSeguridad);
+}
+
+function clasificarCriticidad(stockActual, puntoPedido, coberturaDias, velocidad, stockMinimo) {
+    const ratioStock = stockActual / puntoPedido;
+    
+    if (stockActual <= stockMinimo) {
+        return { nivel: '🚨 CRÍTICO', prioridad: 100 };
+    }
+    if (ratioStock <= 0.5) {
+        return { nivel: '⚠️ ALTO RIESGO', prioridad: 80 };
+    }
+    if (coberturaDias < 15 && velocidad === 'RÁPIDO') {
+        return { nivel: '🔶 ALERTA', prioridad: 60 };
+    }
+    if (coberturaDias < 30) {
+        return { nivel: '📋 VIGILAR', prioridad: 40 };
+    }
+    return { nivel: '✅ ESTABLE', prioridad: 20 };
+}
+
+function generarRecomendacion(stockActual, demandaDiaria, diasCobertura, puntoPedido, criticidad, estacionalidad) {
+    const stockDeseado = demandaDiaria * diasCobertura;
+    let cantidadBase = Math.max(0, stockDeseado - stockActual);
+    
+    // Ajustar por criticidad y estacionalidad
+    if (criticidad.nivel === '🚨 CRÍTICO') {
+        cantidadBase *= 1.5; // Urgente - comprar más
+    }
+    if (estacionalidad === 'ESTACIONAL') {
+        cantidadBase *= 1.2; // Prepararse para picos
+    }
+    
+    // Redondear y asegurar mínimo
+    const cantidad = Math.ceil(Math.max(cantidadBase, puntoPedido * 0.3));
+    
+    let texto = '';
+    if (cantidad === 0) {
+        texto = 'Stock suficiente';
+    } else if (criticidad.nivel === '🚨 CRÍTICO') {
+        texto = '🚨 COMPRA URGENTE';
+    } else if (cantidad > demandaDiaria * 30) {
+        texto = '📦 COMPRA PROGRAMADA';
+    } else {
+        texto = '🛒 REPONER STOCK';
+    }
+    
+    return { texto, cantidad };
+}
+
+// ========= VISUALIZACIÓN MEJORADA =========
+function mostrarResultadosIA(analisis) {
+    const tbody = document.querySelector('#tabla-ia-resultados tbody');
+    tbody.innerHTML = '';
+
+    analisis.resultados.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = `fila-criticidad-${item.criticidad.toLowerCase().replace(/[^a-z]/g, '')}`;
+        
+        tr.innerHTML = `
+            <td>
+                <strong>${item.producto}</strong>
+                <br><small class="text-muted">${item.codigo}</small>
+            </td>
+            <td>${item.stockActual}</td>
+            <td>${item.demandaDiaria}</td>
+            <td>${item.coberturaDias} días</td>
+            <td>${item.puntoPedido}</td>
+            <td>
+                <span class="tendencia ${item.tendencia.includes('ALTA') ? 'tendencia-alta' : item.tendencia.includes('BAJA') ? 'tendencia-baja' : 'tendencia-estable'}">
+                    ${item.tendencia}
+                </span>
+            </td>
+            <td>
+                <span class="badge criticidad-${item.criticidad.toLowerCase().replace(/[^a-z]/g, '')}">
+                    ${item.criticidad}
+                </span>
+            </td>
+            <td><strong>${item.cantidadRecomendada > 0 ? item.cantidadRecomendada : '-'}</strong></td>
+            <td>${item.recomendacion}</td>
+            <td>S/ ${item.costoEstimado}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function mostrarMetricasIA(metricas) {
+    const contenedor = document.getElementById('metricas-ia');
+    if (!contenedor) return;
+
+    contenedor.innerHTML = `
+        <div class="metricas-grid">
+            <div class="metrica-card">
+                <div class="metrica-valor">${metricas.totalProductos}</div>
+                <div class="metrica-label">Total Productos</div>
+            </div>
+            <div class="metrica-card critica">
+                <div class="metrica-valor">${metricas.productosCriticos}</div>
+                <div class="metrica-label">Críticos</div>
+            </div>
+            <div class="metrica-card alerta">
+                <div class="metrica-valor">${metricas.productosAlerta}</div>
+                <div class="metrica-label">En Alerta</div>
+            </div>
+            <div class="metrica-card estable">
+                <div class="metrica-valor">${metricas.productosEstables}</div>
+                <div class="metrica-label">Estables</div>
+            </div>
+            <div class="metrica-card">
+                <div class="metrica-valor">S/ ${metricas.inversionTotal.toFixed(2)}</div>
+                <div class="metrica-label">Inversión Stock</div>
+            </div>
+            <div class="metrica-card riesgo">
+                <div class="metrica-valor">S/ ${metricas.riesgoTotal.toFixed(2)}</div>
+                <div class="metrica-label">Riesgo Potencial</div>
+            </div>
+        </div>
+    `;
+}
+
+function generarAlertasIA(alertas) {
+    const contenedor = document.getElementById('alertas-ia');
+    if (!contenedor || !alertas.length) return;
+
+    contenedor.innerHTML = `
+        <div class="alertas-container">
+            <h4>🚨 Alertas Prioritarias</h4>
+            ${alertas.map(alerta => `
+                <div class="alerta-item ${alerta.tipo}">
+                    <i class="fas ${alerta.icono}"></i>
+                    <span>${alerta.mensaje}</span>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function generarAlertas(resultados) {
+    const alertas = [];
+    
+    const criticos = resultados.filter(r => r.criticidad === '🚨 CRÍTICO');
+    if (criticos.length > 0) {
+        alertas.push({
+            tipo: 'critica',
+            icono: 'fa-exclamation-triangle',
+            mensaje: `${criticos.length} productos en estado CRÍTICO requieren atención inmediata`
+        });
+    }
+    
+    const sinMovimiento = resultados.filter(r => r.demandaDiaria === '0.00' && r.stockActual > 0);
+    if (sinMovimiento.length > 5) {
+        alertas.push({
+            tipo: 'advertencia',
+            icono: 'fa-chart-line',
+            mensaje: `${sinMovimiento.length} productos sin movimiento - considerar rotación`
+        });
+    }
+    
+    const altaVariabilidad = resultados.filter(r => parseFloat(r.variabilidad) > 50);
+    if (altaVariabilidad.length > 0) {
+        alertas.push({
+            tipo: 'info',
+            icono: 'fa-random',
+            mensaje: `${altaVariabilidad.length} productos con demanda variable - revisar patrones`
+        });
+    }
+    
+    return alertas;
+}
+
+// ========= FUNCIÓN PARA MOSTRAR APARTADO IA =========
+function mostrarApartadoIA() {
+    document.querySelectorAll('.admin-section').forEach(sec => sec.style.display = 'none');
+    document.getElementById('apartado-ia').style.display = 'block';
+    
+    // Actualizar navegación
+    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+    document.querySelector('.nav-link[onclick*="ia"]').classList.add('active');
+    
+    // Inicializar IA
+    setTimeout(() => {
+        inicializarIA();
+        calcularIAStockMejorado();
+    }, 500);
+}
+
+// ========= INICIALIZACIÓN MEJORADA =========
+function mostrarApartadoIA() {
+    document.querySelectorAll('.admin-section').forEach(sec => sec.style.display = 'none');
+    document.getElementById('apartado-ia').style.display = 'block';
+    
+    // Actualizar navegación
+    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+    document.querySelector('.nav-link[onclick*="ia"]').classList.add('active');
+    
+    // Inicializar IA
+    setTimeout(() => {
+        inicializarIA();
+        calcularIAStockMejorado();
+    }, 500);
+}
+
+// Lee salidas desde la tabla #tabla-salida (fecha, producto, cantidad)
+function recolectarSalidas(diasAnalisis) {
+  const tbody = document.querySelector('#tabla-salida tbody');
+  if (!tbody) return [];
+
+  const desde = new Date();
+  desde.setDate(desde.getDate() - Number(diasAnalisis));
+
+  const salidas = [];
+  [...tbody.rows].forEach(tr => {
+    // Ajusta estos índices a tu tabla real
+    // Ejemplo: [0]=fecha, [1]=código, [2]=producto, [3]=cantidad
+    const celdas = tr.querySelectorAll('td');
+    if (celdas.length < 4) return;
+
+    const fechaTxt = (celdas[0].innerText || '').trim();
+    const producto = (celdas[2].innerText || '').trim();
+    const cantidad = Number((celdas[3].innerText || '0').replace(/[^0-9.-]/g, ''));
+
+    const fecha = new Date(fechaTxt);
+    if (!isNaN(fecha) && fecha >= desde && cantidad > 0 && producto) {
+      salidas.push({ fecha, producto, cantidad });
+    }
+  });
+  return salidas;
+}
+
+// Lee stock actual por producto desde #tabla-inventario
+function recolectarStockActual() {
+  const tbody = document.querySelector('#tabla-inventario tbody');
+  const stockMap = new Map();
+  if (!tbody) return stockMap;
+
+  [...tbody.rows].forEach(tr => {
+    // Ajusta índices según tus columnas reales
+    // Ejemplo: [0]=Código, [1]=Producto, [2]=Categoría, [3]=Stock
+    const tds = tr.querySelectorAll('td');
+    if (tds.length < 4) return;
+
+    const producto = (tds[1].innerText || '').trim();
+    const stock = Number((tds[3].innerText || '0').replace(/[^0-9.-]/g, ''));
+    if (producto) stockMap.set(producto, (stockMap.get(producto) || 0) + (isNaN(stock) ? 0 : stock));
+  });
+
+  return stockMap;
+}
+
+// Calcula promedio diario por producto a partir de salidas
+function promedioDiarioPorProducto(salidas, diasAnalisis) {
+  const sumas = new Map();
+  salidas.forEach(s => {
+    sumas.set(s.producto, (sumas.get(s.producto) || 0) + s.cantidad);
+  });
+
+  const promedios = new Map();
+  const dias = Math.max(1, Number(diasAnalisis));
+  sumas.forEach((total, prod) => {
+    promedios.set(prod, total / dias);
+  });
+  return promedios;
+}
+
+// Dibuja resultados en tabla
+function renderIAResultados(rows) {
+  const tbody = document.querySelector('#tabla-ia-resultados tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  rows
+    .sort((a,b) => b.recomendada - a.recomendada) // ordenar por mayor recomendación
+    .forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.producto}</td>
+        <td>${r.promedioDiario.toFixed(2)}</td>
+        <td>${r.stockActual}</td>
+        <td>${r.puntoPedido}</td>
+        <td><strong>${r.recomendada > 0 ? Math.ceil(r.recomendada) : 0}</strong></td>
+        <td>${r.observacion}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+}
+
+
+
+// Función principal
+function calcularIAStock() {
+  const diasAnalisis  = Number(document.getElementById('ia-dias-analisis').value || 30);
+  const diasCobertura = Number(document.getElementById('ia-dias-cobertura').value || 30);
+  const leadTime      = Number(document.getElementById('ia-leadtime').value || 5);
+  const seguridadPct  = Number(document.getElementById('ia-seguridad').value || 20) / 100;
+
+  const salidas = recolectarSalidas(diasAnalisis);
+  const stockMap = recolectarStockActual();
+  const promMap = promedioDiarioPorProducto(salidas, diasAnalisis);
+
+  const resultados = [];
+
+  // Unir por producto presente en salidas o inventario
+  const productos = new Set([...promMap.keys(), ...stockMap.keys()]);
+  productos.forEach(prod => {
+    const promedio = promMap.get(prod) || 0;
+    const stockActual = stockMap.get(prod) || 0;
+
+    // Punto de pedido = demanda diaria * lead time + seguridad
+    const puntoPedido = Math.ceil(promedio * leadTime * (1 + seguridadPct));
+
+    // Cobertura objetivo = demanda diaria * días cobertura
+    const objetivo = promedio * diasCobertura;
+
+    // Recomendación: comprar lo necesario para alcanzar la cobertura objetivo
+    let recomendada = Math.max(0, objetivo - stockActual);
+    let observacion = 'OK';
+    if (stockActual <= puntoPedido) {
+      observacion = '🚨 Por debajo del punto de pedido';
+    } else if (recomendada > 0) {
+      observacion = '⚠️ Reponer para cobertura';
+    }
+
+    resultados.push({
+      producto: prod,
+      promedioDiario: promedio,
+      stockActual,
+      puntoPedido,
+      recomendada,
+      observacion
+    });
+  });
+
+  // Filtra solo productos con recomendación > 0 o alerta
+  const filtrados = resultados.filter(r => r.recomendada > 0 || r.stockActual <= r.puntoPedido);
+  renderIAResultados(filtrados);
+}
+
+function cambiarSeccion(idSeccion, elLink) {
+  document.querySelectorAll('.admin-section').forEach(s => s.style.display = 'none');
+  const destino = document.getElementById(idSeccion);
+  if (destino) destino.style.display = 'block';
+
+  // activar link
+  document.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
+  if (elLink) elLink.classList.add('active');
+}
 
 // Función para actualizar estadísticas en la página de inicio
 async function actualizarEstadisticas() {
@@ -186,6 +803,186 @@ async function actualizarEstadisticas() {
     } catch (error) {
         console.error("Error al actualizar estadísticas:", error);
     }
+}
+
+// =========================================================
+// 📊 Exportar a Excel (.xlsx) con 4 hojas — VERSIÓN CON FORMATO BÁSICO
+// =========================================================
+async function exportarExcelInventario() {
+  try {
+    if (typeof XLSX === 'undefined') {
+      alert('⚠️ Falta la librería XLSX. Agrega <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script> antes de script.js');
+      return;
+    }
+
+    // ===== 1) GUARDAR ESTADO ACTUAL =====
+    const adminPanel = document.getElementById('dashboard-admin');
+    const mechanicPanel = document.getElementById('dashboard-mecanico');
+    
+    // Guardar estados actuales
+    const adminWasVisible = adminPanel.style.display === 'block';
+    const mechanicWasVisible = mechanicPanel.style.display === 'block';
+    
+    // ===== 2) MOSTRAR SOLO EL PANEL DE ADMINISTRADOR =====
+    if (adminPanel) adminPanel.style.display = 'block';
+    if (mechanicPanel) mechanicPanel.style.display = 'none';
+
+    // ===== 3) OBTENER DATOS DIRECTAMENTE DE FIRESTORE =====
+    if (!db) {
+      alert("❌ Error: Base de datos no disponible");
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+
+    // Función para crear una hoja con formato básico
+    const crearHojaConFormato = (datos, nombreHoja) => {
+      if (datos.length === 0) return null;
+
+      // Crear la hoja de trabajo
+      const ws = XLSX.utils.json_to_sheet(datos);
+      
+      // Ajustar anchos de columnas automáticamente
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      const colWidths = [];
+      
+      for (let C = range.s.c; C <= range.e.c; C++) {
+        let maxLength = 10; // Ancho mínimo
+        for (let R = range.s.r; R <= range.e.r; R++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          if (ws[cellAddress] && ws[cellAddress].v) {
+            const cellLength = ws[cellAddress].v.toString().length;
+            if (cellLength > maxLength) maxLength = cellLength;
+          }
+        }
+        // Limitar el ancho máximo
+        colWidths.push({ wch: Math.min(maxLength + 2, 30) });
+      }
+      
+      ws['!cols'] = colWidths;
+      
+      // Agregar auto-filtro a los encabezados
+      ws['!autofilter'] = { ref: XLSX.utils.encode_range(range) };
+      
+      return ws;
+    };
+
+    try {
+      // HOJA 1: INVENTARIO (STOCK)
+      const inventarioSnapshot = await db.collection('inventario').orderBy('nombre').get();
+      const datosInventario = inventarioSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          'FECHA ACTUALIZACIÓN': data.fechaActualizacion || 'N/A',
+          'CÓDIGO': data.codigo || '',
+          'NOMBRE DEL PRODUCTO': data.nombre || '',
+          'LOTE': data.lote || '',
+          'COSTO UNITARIO (S/.)': `S/ ${parseFloat(data.costoUnitario || 0).toFixed(2)}`,
+          'PRECIO VENTA (S/.)': `S/ ${parseFloat(data.precioVenta || 0).toFixed(2)}`,
+          'STOCK ACTUAL': data.stock || 0
+        };
+      });
+      
+      if (datosInventario.length > 0) {
+        const wsInventario = crearHojaConFormato(datosInventario, 'Inventario (Stock)');
+        XLSX.utils.book_append_sheet(wb, wsInventario, '📦 INVENTARIO');
+      }
+
+      // HOJA 2: HISTORIAL DE ENTRADAS
+      const entradasSnapshot = await db.collection('historialEntradas').orderBy('fecha', 'desc').get();
+      const datosEntradas = entradasSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          'FECHA DE ENTRADA': data.fecha || 'N/A',
+          'CÓDIGO PRODUCTO': data.codigo || '',
+          'NOMBRE DEL PRODUCTO': data.nombre || '',
+          'CANTIDAD INGRESADA': data.cantidad || 0
+        };
+      });
+      
+      if (datosEntradas.length > 0) {
+        const wsEntradas = crearHojaConFormato(datosEntradas, 'Historial de Entradas');
+        XLSX.utils.book_append_sheet(wb, wsEntradas, '⬇️ ENTRADAS');
+      }
+
+      // HOJA 3: HISTORIAL DE SALIDAS
+      const salidasSnapshot = await db.collection('repuestosSalida').orderBy('fecha', 'desc').get();
+      const datosSalidas = salidasSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          'FECHA DE SALIDA': data.fecha || 'N/A',
+          'REPUESTO UTILIZADO': data.repuesto || '',
+          'CLIENTE': data.cliente || '',
+          'N° ORDEN TRABAJO': data.numeroOT || '',
+          'CANTIDAD RETIRADA': data.cantidad || 0,
+          'PLACA VEHÍCULO': data.placa || 'N/A',
+          'KILOMETRAJE': data.kilometraje || 0
+        };
+      });
+      
+      if (datosSalidas.length > 0) {
+        const wsSalidas = crearHojaConFormato(datosSalidas, 'Historial de Salidas');
+        XLSX.utils.book_append_sheet(wb, wsSalidas, '⬆️ SALIDAS');
+      }
+
+      // HOJA 4: HISTORIAL DE SOLICITUDES
+      const solicitudesSnapshot = await db.collection('solicitudesRepuestos').orderBy('fecha', 'desc').get();
+      const datosSolicitudes = solicitudesSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          'FECHA SOLICITUD': data.fecha || 'N/A',
+          'MECÁNICO SOLICITANTE': data.mecanico || '',
+          'REPUESTO SOLICITADO': data.repuesto || '',
+          'CANTIDAD SOLICITADA': data.cantidad || 0,
+          'ESTADO ACTUAL': data.estado || ''
+        };
+      });
+      
+      if (datosSolicitudes.length > 0) {
+        const wsSolicitudes = crearHojaConFormato(datosSolicitudes, 'Historial de Solicitudes');
+        XLSX.utils.book_append_sheet(wb, wsSolicitudes, '📋 SOLICITUDES');
+      }
+
+      // ===== 4) VERIFICAR QUE HAY DATOS =====
+      if (wb.SheetNames.length === 0) {
+        alert('⚠️ No hay datos para exportar.');
+        return;
+      }
+
+      // ===== 5) GENERAR Y DESCARGAR EXCEL =====
+      const fecha = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(wb, `INVENTARIO_COMPLETO_${fecha}.xlsx`);
+      
+      alert(`✅ EXCEL GENERADO EXITOSAMENTE!\n\n📊 CONTIENE ${wb.SheetNames.length} HOJAS:\n• 📦 INVENTARIO (Stock actual)\n• ⬇️ ENTRADAS (Historial)\n• ⬆️ SALIDAS (Historial)  \n• 📋 SOLICITUDES (Historial)\n\n✨ Los encabezados tienen auto-filtro para fácil organización`);
+
+    } catch (error) {
+      console.error("Error al obtener datos de Firestore:", error);
+      alert("❌ Error al obtener los datos para el Excel.");
+    }
+
+  } catch (err) {
+    console.error('Error al exportar Excel:', err);
+    alert('❌ Error al generar el Excel. Revisa la consola (F12).');
+  } finally {
+    // ===== 6) RESTAURAR ESTADO ORIGINAL =====
+    if (typeof mostrarApartado === 'function') {
+      try {
+        const navLinkActivo = document.querySelector('.nav-link.active');
+        if (navLinkActivo) {
+          const onclickAttr = navLinkActivo.getAttribute('onclick');
+          if (onclickAttr && onclickAttr.includes("mostrarApartado")) {
+            const match = onclickAttr.match(/mostrarApartado\('([^']*)'\)/);
+            if (match && match[1] !== undefined) {
+              mostrarApartado(match[1]);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("No se pudo restaurar la sección activa:", e);
+        mostrarApartado('');
+      }
+    }
+  }
 }
 
 // --- FUNCIONES DE AUTOCOMPLETAR ---

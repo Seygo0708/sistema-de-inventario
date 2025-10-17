@@ -38,6 +38,11 @@ async function initializeFirebase() {
     }
 }
 
+window.onload = () => {
+    initializeFirebase();
+};
+
+
 // Función para seleccionar rol con estilo visual
 function selectRole(role) {
     document.querySelectorAll('.role-option').forEach(option => {

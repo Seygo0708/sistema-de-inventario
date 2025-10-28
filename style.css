@@ -1837,3 +1837,281 @@ tbody tr {
     gap: 10px;
     width: 100%;
 }
+
+/* === CORRECCIÓN FINAL DE ALINEACIÓN Y ESTRUCTURA VISUAL === */
+/* Aplica formato uniforme a las secciones flotantes */
+#apartado-inventario,
+#apartado-solicitudes,
+#apartado-stock,
+#apartado-reportes {
+    background-color: var(--light);
+    padding: 30px 35px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    margin: 0 auto 40px auto;
+    max-width: 1200px;
+    width: 100%;
+}
+
+/* Estructura interna coherente con las secciones funcionales */
+#apartado-inventario .content-grid,
+#apartado-solicitudes .content-grid,
+#apartado-stock .content-grid,
+#apartado-reportes .content-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 25px;
+    align-items: start;
+    justify-items: stretch;
+}
+
+/* Tarjeta de contenido interna */
+#apartado-inventario .sub-section-container,
+#apartado-solicitudes .sub-section-container,
+#apartado-stock .sub-section-container,
+#apartado-reportes .sub-section-container {
+    background: white;
+    padding: 25px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    width: 100%;
+}
+
+/* Encabezados idénticos a Registro de Salidas */
+#apartado-inventario .section-header h2,
+#apartado-solicitudes .section-header h2,
+#apartado-stock .section-header h2,
+#apartado-reportes .section-header h2 {
+    color: var(--primary);
+    font-size: 28px;
+    font-weight: 700;
+}
+
+#apartado-inventario .section-header p,
+#apartado-solicitudes .section-header p,
+#apartado-stock .section-header p,
+#apartado-reportes .section-header p {
+    color: var(--gray);
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+
+/* === CORRECCIÓN FINAL: PEGAR SECCIONES A LA BARRA LATERAL === */
+#apartado-inventario,
+#apartado-solicitudes,
+#apartado-stock,
+#apartado-reportes {
+    background-color: var(--light);
+    padding: 30px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    margin: 0 0 40px 0; /* Sin margen izquierdo ni centrado */
+    max-width: 100%;
+    width: 100%;
+}
+
+/* Quitar centrado automático del contenido principal */
+.main-content {
+    flex: 1;
+    padding: 30px;
+    background: var(--light);
+    min-height: 80vh;
+    margin: 0; /* Eliminar centrado */
+}
+
+/* Ajustar el grid interno para ocupar todo el ancho disponible */
+#apartado-inventario .content-grid,
+#apartado-solicitudes .content-grid,
+#apartado-stock .content-grid,
+#apartado-reportes .content-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 25px;
+    align-items: start;
+    justify-items: stretch;
+    width: 100%;
+    max-width: none; /* Sin límite de ancho */
+    margin: 0; /* Pegado al lateral */
+}
+
+/* Asegurar que las tarjetas internas no se achiquen */
+#apartado-inventario .sub-section-container,
+#apartado-solicitudes .sub-section-container,
+#apartado-stock .sub-section-container,
+#apartado-reportes .sub-section-container {
+    width: 100%;
+    margin: 0;
+}
+
+/* === CORRECCIÓN FINAL: PEGAR SECCIONES A LA BARRA LATERAL === */
+#apartado-inventario,
+#apartado-solicitudes,
+#apartado-stock,
+#apartado-reportes {
+    background-color: var(--light);
+    padding: 30px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    margin: 0 0 40px 0; /* Sin margen izquierdo ni centrado */
+    max-width: 100%;
+    width: 100%;
+}
+
+/* Quitar centrado automático del contenido principal */
+.main-content {
+    flex: 1;
+    padding: 30px;
+    background: var(--light);
+    min-height: 80vh;
+    margin: 0; /* Eliminar centrado */
+}
+
+/* Ajustar el grid interno para ocupar todo el ancho disponible */
+#apartado-inventario .content-grid,
+#apartado-solicitudes .content-grid,
+#apartado-stock .content-grid,
+#apartado-reportes .content-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 25px;
+    align-items: start;
+    justify-items: stretch;
+    width: 100%;
+    max-width: none; /* Sin límite de ancho */
+    margin: 0; /* Pegado al lateral */
+}
+
+/* Asegurar que las tarjetas internas no se achiquen */
+#apartado-inventario .sub-section-container,
+#apartado-solicitudes .sub-section-container,
+#apartado-stock .sub-section-container,
+#apartado-reportes .sub-section-container {
+    width: 100%;
+    margin: 0;
+}
+
+/* === AJUSTE GLOBAL: PEGADO PERFECTO A LA BARRA LATERAL === */
+.dashboard-container {
+    display: flex;
+    min-height: 80vh;
+    background: var(--light);
+}
+
+/* Contenido principal sin márgenes ni separación izquierda */
+.main-content {
+    flex: 1;
+    background: var(--light);
+    min-height: 80vh;
+    padding: 30px 30px 30px 0 !important; /* Sin espacio a la izquierda */
+    margin: 0 !important;
+}
+
+/* === APLICAR A TODAS LAS SECCIONES === */
+#apartado-inicio,
+#apartado-inventario,
+#apartado-entradas,
+#apartado-salidas,
+#apartado-solicitudes,
+#apartado-stock,
+#apartado-reportes,
+#apartado-ia {
+    margin: 0 !important;
+    padding-left: 0 !important;
+    border-radius: 0 !important; /* sin bordes redondeados izquierdos */
+    background-color: var(--light);
+    box-shadow: none !important; /* elimina sombras que crean separación */
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+/* Encabezados coherentes sin bordes ni sangrías */
+#apartado-inicio .section-header,
+#apartado-inventario .section-header,
+#apartado-entradas .section-header,
+#apartado-salidas .section-header,
+#apartado-solicitudes .section-header,
+#apartado-stock .section-header,
+#apartado-reportes .section-header,
+#apartado-ia .section-header {
+    border-top-left-radius: 0 !important;
+    border-left: none !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+/* Grids internos ocupando todo el ancho */
+#apartado-inicio .content-grid,
+#apartado-inventario .content-grid,
+#apartado-entradas .content-grid,
+#apartado-salidas .content-grid,
+#apartado-solicitudes .content-grid,
+#apartado-stock .content-grid,
+#apartado-reportes .content-grid,
+#apartado-ia .content-grid {
+    width: 100% !important;
+    margin: 0 !important;
+    padding-left: 0 !important;
+    max-width: 100% !important;
+    justify-items: stretch !important;
+}
+
+/* Contenedores internos sin separación lateral */
+#apartado-inicio .sub-section-container,
+#apartado-inventario .sub-section-container,
+#apartado-entradas .sub-section-container,
+#apartado-salidas .sub-section-container,
+#apartado-solicitudes .sub-section-container,
+#apartado-stock .sub-section-container,
+#apartado-reportes .sub-section-container,
+#apartado-ia .sub-section-container {
+    width: 100% !important;
+    margin-left: 0 !important;
+    padding-left: 25px !important;
+    border-radius: 0 12px 12px 0 !important; /* mantiene redondeado solo a la derecha */
+}
+
+/* === SEPARACIÓN VISUAL SUAVE SOLO PARA SECCIONES PRINCIPALES === */
+/* Mantiene el diseño intacto, solo separa un poco de la barra lateral */
+
+#apartado-inicio,
+#apartado-entradas,
+#apartado-salidas,
+#apartado-ia {
+    margin-left: 15px !important; /* separación mínima y uniforme */
+    transition: margin 0.3s ease; /* transición suave */
+}
+
+/* === SEPARACIÓN REAL DE LA BARRA LATERAL PARA ENTRADAS Y SALIDAS === */
+/* No mueve el menú, solo agrega espacio interno al área de contenido */
+
+#apartado-entradas,
+#apartado-salidas {
+    padding-left: 25px !important; /* crea espacio real entre la barra y el contenido */
+    box-sizing: border-box;
+}
+
+/* SEPARACIÓN MÁXIMA ESPECÍFICA */
+#apartado-entradas {
+    margin-left: 25px !important;
+    transform: translateX(15px) !important;
+}
+
+#apartado-salidas {
+    margin-left: 25px !important;
+    transform: translateX(15px) !important;
+}
+
+/* === AJUSTE SUAVE DE SEPARACIÓN PARA ENTRADAS Y SALIDAS === */
+/* Margen visual sutil sin romper la alineación general */
+
+#apartado-entradas,
+#apartado-salidas {
+    margin-left: 15px !important;       /* separación suave del borde azul */
+    padding-left: 15px !important;      /* espacio interno consistente */
+    width: calc(100% - 15px) !important;
+    box-sizing: border-box !important;
+    background-color: var(--light);
+    border-radius: 0 12px 12px 0 !important;
+    transition: all 0.3s ease;
+}

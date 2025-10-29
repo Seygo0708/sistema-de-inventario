@@ -1838,8 +1838,11 @@ tbody tr {
     width: 100%;
 }
 
-/* === CORRECCIÓN FINAL DE ALINEACIÓN Y ESTRUCTURA VISUAL === */
-/* Aplica formato uniforme a las secciones flotantes */
+/* === ALINEACIÓN Y ESTRUCTURA VISUAL === */
+
+#apartado-incio,
+#apartado-entrada,
+#apartado-salida,
 #apartado-inventario,
 #apartado-solicitudes,
 #apartado-stock,
@@ -1854,6 +1857,9 @@ tbody tr {
 }
 
 /* Estructura interna coherente con las secciones funcionales */
+#apartado-incio .content-grid,
+#apartado-entrada .content-grid,
+#apartado-salida .content-grid,
 #apartado-inventario .content-grid,
 #apartado-solicitudes .content-grid,
 #apartado-stock .content-grid,
@@ -1866,6 +1872,9 @@ tbody tr {
 }
 
 /* Tarjeta de contenido interna */
+#apartado-incio .sub-section-container,
+#apartado-entrada .sub-section-container,
+#apartado-salida .sub-section-container,
 #apartado-inventario .sub-section-container,
 #apartado-solicitudes .sub-section-container,
 #apartado-stock .sub-section-container,
@@ -1878,6 +1887,9 @@ tbody tr {
 }
 
 /* Encabezados idénticos a Registro de Salidas */
+#apartado-incio .section-header h2,
+#apartado-entrada .section-header h2,
+#apartado-salida .section-header h2,
 #apartado-inventario .section-header h2,
 #apartado-solicitudes .section-header h2,
 #apartado-stock .section-header h2,
@@ -1887,6 +1899,9 @@ tbody tr {
     font-weight: 700;
 }
 
+#apartado-incio .section-header p,
+#apartado-entrada .section-header p,
+#apartado-salida  .section-header p,
 #apartado-inventario .section-header p,
 #apartado-solicitudes .section-header p,
 #apartado-stock .section-header p,
@@ -1898,6 +1913,9 @@ tbody tr {
 
 
 /* === CORRECCIÓN FINAL: PEGAR SECCIONES A LA BARRA LATERAL === */
+#apartado-incio,
+#apartado-entrada,
+#apartado-salida,
 #apartado-inventario,
 #apartado-solicitudes,
 #apartado-stock,
@@ -1906,7 +1924,7 @@ tbody tr {
     padding: 30px;
     border-radius: var(--border-radius);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-    margin: 0 0 40px 0; /* Sin margen izquierdo ni centrado */
+    margin: 0 0 40px 0; 
     max-width: 100%;
     width: 100%;
 }
@@ -1917,10 +1935,13 @@ tbody tr {
     padding: 30px;
     background: var(--light);
     min-height: 80vh;
-    margin: 0; /* Eliminar centrado */
+    margin: 0; 
 }
 
 /* Ajustar el grid interno para ocupar todo el ancho disponible */
+#apartado-incio .content-grid,
+#apartado-entrada .content-grid,
+#apartado-salida .content-grid,
 #apartado-inventario .content-grid,
 #apartado-solicitudes .content-grid,
 #apartado-stock .content-grid,
@@ -1931,11 +1952,14 @@ tbody tr {
     align-items: start;
     justify-items: stretch;
     width: 100%;
-    max-width: none; /* Sin límite de ancho */
-    margin: 0; /* Pegado al lateral */
+    max-width: none; 
+    margin: 0; 
 }
 
 /* Asegurar que las tarjetas internas no se achiquen */
+#apartado-incio .sub-section-container,
+#apartado-entrada .sub-section-container,
+#apartado-salida .sub-section-container,
 #apartado-inventario .sub-section-container,
 #apartado-solicitudes .sub-section-container,
 #apartado-stock .sub-section-container,
@@ -1944,7 +1968,11 @@ tbody tr {
     margin: 0;
 }
 
-/* === CORRECCIÓN FINAL: PEGAR SECCIONES A LA BARRA LATERAL === */
+/* === PEGAR SECCIONES A LA BARRA LATERAL === */
+
+#apartado-inicio,
+#apartado-entrada,
+#apartado-salida,
 #apartado-inventario,
 #apartado-solicitudes,
 #apartado-stock,
@@ -1953,7 +1981,7 @@ tbody tr {
     padding: 30px;
     border-radius: var(--border-radius);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-    margin: 0 0 40px 0; /* Sin margen izquierdo ni centrado */
+    margin: 0 0 40px 0; 
     max-width: 100%;
     width: 100%;
 }
@@ -1964,10 +1992,13 @@ tbody tr {
     padding: 30px;
     background: var(--light);
     min-height: 80vh;
-    margin: 0; /* Eliminar centrado */
+    margin: 0; 
 }
 
 /* Ajustar el grid interno para ocupar todo el ancho disponible */
+#apartado-inicio .content-grid,
+#apartado-entrada .content-grid,
+#apartado-salida .content-grid,
 #apartado-inventario .content-grid,
 #apartado-solicitudes .content-grid,
 #apartado-stock .content-grid,
@@ -1978,11 +2009,14 @@ tbody tr {
     align-items: start;
     justify-items: stretch;
     width: 100%;
-    max-width: none; /* Sin límite de ancho */
-    margin: 0; /* Pegado al lateral */
+    max-width: none; 
+    margin: 0; 
 }
 
 /* Asegurar que las tarjetas internas no se achiquen */
+#apartado-inicio .sub-section-container,
+#apartado-entrada .sub-section-container,
+#apartado-salida .sub-section-container,
 #apartado-inventario .sub-section-container,
 #apartado-solicitudes .sub-section-container,
 #apartado-stock .sub-section-container,
@@ -2003,7 +2037,7 @@ tbody tr {
     flex: 1;
     background: var(--light);
     min-height: 80vh;
-    padding: 30px 30px 30px 0 !important; /* Sin espacio a la izquierda */
+    padding: 30px 30px 30px 0 !important; 
     margin: 0 !important;
 }
 
@@ -2018,9 +2052,9 @@ tbody tr {
 #apartado-ia {
     margin: 0 !important;
     padding-left: 0 !important;
-    border-radius: 0 !important; /* sin bordes redondeados izquierdos */
+    border-radius: 0 !important;
     background-color: var(--light);
-    box-shadow: none !important; /* elimina sombras que crean separación */
+    box-shadow: none !important; 
     max-width: 100% !important;
     width: 100% !important;
 }
@@ -2068,26 +2102,33 @@ tbody tr {
     width: 100% !important;
     margin-left: 0 !important;
     padding-left: 25px !important;
-    border-radius: 0 12px 12px 0 !important; /* mantiene redondeado solo a la derecha */
+    border-radius: 0 12px 12px 0 !important; 
 }
 
 /* === SEPARACIÓN VISUAL SUAVE SOLO PARA SECCIONES PRINCIPALES === */
-/* Mantiene el diseño intacto, solo separa un poco de la barra lateral */
 
 #apartado-inicio,
 #apartado-entradas,
 #apartado-salidas,
+#apartado-inventario,
+#apartado-solicitudes,
+#apartado-stock
+
+#apartado-reportes {
+    margin-left: 15px !important; 
+    transition: margin 0.3s ease; 
+}
 #apartado-ia {
-    margin-left: 15px !important; /* separación mínima y uniforme */
-    transition: margin 0.3s ease; /* transición suave */
+    margin-left: 15px !important; 
+    transition: margin 0.3s ease; 
 }
 
 /* === SEPARACIÓN REAL DE LA BARRA LATERAL PARA ENTRADAS Y SALIDAS === */
-/* No mueve el menú, solo agrega espacio interno al área de contenido */
+
 
 #apartado-entradas,
 #apartado-salidas {
-    padding-left: 25px !important; /* crea espacio real entre la barra y el contenido */
+    padding-left: 25px !important; 
     box-sizing: border-box;
 }
 
@@ -2103,12 +2144,12 @@ tbody tr {
 }
 
 /* === AJUSTE SUAVE DE SEPARACIÓN PARA ENTRADAS Y SALIDAS === */
-/* Margen visual sutil sin romper la alineación general */
+
 
 #apartado-entradas,
 #apartado-salidas {
-    margin-left: 15px !important;       /* separación suave del borde azul */
-    padding-left: 15px !important;      /* espacio interno consistente */
+    margin-left: 15px !important;       
+    padding-left: 15px !important;      
     width: calc(100% - 15px) !important;
     box-sizing: border-box !important;
     background-color: var(--light);

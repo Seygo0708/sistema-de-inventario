@@ -38,11 +38,6 @@ async function initializeFirebase() {
     }
 }
 
-window.onload = () => {
-    initializeFirebase();
-};
-
-
 // Función para seleccionar rol con estilo visual
 function selectRole(role) {
     document.querySelectorAll('.role-option').forEach(option => {
@@ -72,8 +67,8 @@ function login() {
         return;
     }
 
-    if ((role === 'admin' && username === 'admin' && password === '12456') ||
-        (role === 'Usuario' && username === 'mecanico' && password === '123456')) {
+    if ((role === 'admin' && username === 'admin' && password === '123') ||
+        (role === 'Usuario' && username === 'mecanico' && password === '123')) {
         mostrarDashboard(role);
     } else {
         alert('Usuario o contraseña incorrectos.');
@@ -164,971 +159,6 @@ function mostrarApartado(nombre) {
 }
     }
 }
-//// ========= SISTEMA IA - PREDICCIÓN INTELIGENTE =========
-function inicializarIA() {
-    document.getElementById('ia-dias-analisis').value = 60;
-    document.getElementById('ia-dias-cobertura').value = 45;
-    document.getElementById('ia-leadtime').value = 7;
-    document.getElementById('ia-seguridad').value = 25;
-    document.getElementById('ia-stock-minimo').value = 3;
-}
-
-async function calcularIAStockMejorado() {
-    // Verificar que Firebase esté inicializado
-    if (!db) {
-        alert("❌ Error: La base de datos no está disponible. Intentando reconectar...");
-        const initialized = await initializeFirebase();
-        if (!initialized) {
-            alert("❌ No se pudo conectar a la base de datos. Verifica tu conexión.");
-            return;
-        }
-    }
-
-    const diasAnalisis  = Number(document.getElementById('ia-dias-analisis').value || 60);
-    const diasCobertura = Number(document.getElementById('ia-dias-cobertura').value || 45);
-    const leadTime      = Number(document.getElementById('ia-leadtime').value || 7);
-    const seguridadPct  = Number(document.getElementById('ia-seguridad').value || 25) / 100;
-    const stockMinimo   = Number(document.getElementById('ia-stock-minimo').value || 3);
-
-    try {
-        // Mostrar loading
-        const tbody = document.querySelector('#tabla-ia-resultados tbody');
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Analizando datos...</td></tr>';
-
-        // Obtener datos completos
-        const [salidasData, entradasData, stockData] = await Promise.all([
-            obtenerSalidasCompletas(diasAnalisis),
-            obtenerEntradasCompletas(diasAnalisis),
-            obtenerStockActualCompleto()
-        ]);
-
-        // Procesar análisis avanzado
-        const analisis = analisisAvanzadoStock(
-            salidasData, 
-            entradasData, 
-            stockData, 
-            diasAnalisis,
-            diasCobertura,
-            leadTime,
-            seguridadPct,
-            stockMinimo
-        );
-
-        // Mostrar resultados
-        mostrarResultadosIA(analisis);
-        mostrarMetricasIA(analisis.metricas);
-        generarAlertasIA(analisis.alertas);
-
-    } catch (error) {
-        console.error("Error en IA:", error);
-        alert("❌ Error al calcular predicciones: " + error.message);
-        
-        // Mostrar error en la tabla
-        const tbody = document.querySelector('#tabla-ia-resultados tbody');
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 20px; color: #e74c3c;">
-            <i class="fas fa-exclamation-triangle"></i> Error: ${error.message}
-        </td></tr>`;
-    }
-}
-
-// ========= FUNCIONES DE ANÁLISIS MEJORADAS =========
-async function obtenerSalidasCompletas(dias) {
-    if (!db) {
-        throw new Error("Base de datos no disponible");
-    }
-
-    const fechaLimite = new Date();
-    fechaLimite.setDate(fechaLimite.getDate() - dias);
-    
-    const snapshot = await db.collection('repuestosSalida')
-        .where('fecha', '>=', fechaLimite.toISOString().split('T')[0])
-        .get();
-    
-    return snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            fecha: new Date(data.fecha),
-            producto: data.repuesto,
-            cantidad: data.cantidad,
-            tipo: 'salida'
-        };
-    });
-}
-
-async function obtenerEntradasCompletas(dias) {
-    if (!db) {
-        throw new Error("Base de datos no disponible");
-    }
-
-    const fechaLimite = new Date();
-    fechaLimite.setDate(fechaLimite.getDate() - dias);
-    
-    const snapshot = await db.collection('historialEntradas')
-        .where('fecha', '>=', fechaLimite.toISOString().split('T')[0])
-        .get();
-    
-    return snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            fecha: new Date(data.fecha),
-            producto: data.nombre,
-            cantidad: data.cantidad,
-            tipo: 'entrada'
-        };
-    });
-}
-
-async function obtenerStockActualCompleto() {
-    if (!db) {
-        throw new Error("Base de datos no disponible");
-    }
-
-    const snapshot = await db.collection('inventario').get();
-    const stockMap = new Map();
-    
-    snapshot.forEach(doc => {
-        const data = doc.data();
-        stockMap.set(data.nombre, {
-            stock: data.stock,
-            costo: parseFloat(data.costoUnitario || 0),
-            precio: parseFloat(data.precioVenta || 0),
-            codigo: data.codigo,
-            fechaActualizacion: data.fechaActualizacion
-        });
-    });
-    
-    return stockMap;
-}
-
-function analisisAvanzadoStock(salidas, entradas, stockMap, diasAnalisis, diasCobertura, leadTime, seguridadPct, stockMinimo) {
-    const productos = new Set([
-        ...salidas.map(s => s.producto),
-        ...entradas.map(e => e.producto),
-        ...Array.from(stockMap.keys())
-    ]);
-
-    const resultados = [];
-    let metricas = {
-        totalProductos: 0,
-        productosCriticos: 0,
-        productosAlerta: 0,
-        productosEstables: 0,
-        inversionTotal: 0,
-        riesgoTotal: 0
-    };
-
-    productos.forEach(producto => {
-        const movimientosProducto = [
-            ...salidas.filter(s => s.producto === producto),
-            ...entradas.filter(e => e.producto === producto)
-        ].sort((a, b) => a.fecha - b.fecha);
-
-        const stockActual = stockMap.get(producto)?.stock || 0;
-        const costoUnitario = stockMap.get(producto)?.costo || 0;
-        
-        // Análisis de tendencia
-        const tendencia = calcularTendencia(movimientosProducto, diasAnalisis);
-        const estacionalidad = detectarEstacionalidad(movimientosProducto);
-        const velocidadConsumo = calcularVelocidadConsumo(movimientosProducto, diasAnalisis);
-        
-        // Cálculos mejorados
-        const demandaDiaria = calcularDemandaDiaria(movimientosProducto, diasAnalisis);
-        const variabilidad = calcularVariabilidadDemanda(movimientosProducto, demandaDiaria);
-        const puntoPedido = calcularPuntoPedido(demandaDiaria, leadTime, variabilidad, seguridadPct);
-        const coberturaDias = stockActual / Math.max(demandaDiaria, 0.1);
-        
-        // Clasificación de criticidad
-        const criticidad = clasificarCriticidad(
-            stockActual, 
-            puntoPedido, 
-            coberturaDias, 
-            velocidadConsumo,
-            stockMinimo
-        );
-
-        // Recomendación inteligente
-        const recomendacion = generarRecomendacion(
-            stockActual,
-            demandaDiaria,
-            diasCobertura,
-            puntoPedido,
-            criticidad,
-            estacionalidad
-        );
-
-        // Actualizar métricas
-        metricas.totalProductos++;
-        if (criticidad.nivel === '🚨 CRÍTICO') metricas.productosCriticos++;
-        if (criticidad.nivel === '⚠️ ALTO RIESGO') metricas.productosAlerta++;
-        if (criticidad.nivel === '✅ ESTABLE') metricas.productosEstables++;
-        
-        metricas.inversionTotal += stockActual * costoUnitario;
-        if (criticidad.nivel === '🚨 CRÍTICO') {
-            metricas.riesgoTotal += demandaDiaria * diasCobertura * costoUnitario;
-        }
-
-        resultados.push({
-            producto,
-            codigo: stockMap.get(producto)?.codigo || 'N/A',
-            stockActual,
-            demandaDiaria: demandaDiaria.toFixed(2),
-            coberturaDias: coberturaDias.toFixed(1),
-            puntoPedido: Math.ceil(puntoPedido),
-            tendencia: tendencia.direccion,
-            velocidadConsumo,
-            variabilidad: (variabilidad * 100).toFixed(1) + '%',
-            criticidad: criticidad.nivel,
-            recomendacion: recomendacion.texto,
-            cantidadRecomendada: recomendacion.cantidad,
-            prioridad: criticidad.prioridad,
-            costoEstimado: (recomendacion.cantidad * costoUnitario).toFixed(2)
-        });
-    });
-
-    // Ordenar por prioridad y criticidad
-    resultados.sort((a, b) => b.prioridad - a.prioridad);
-
-    // Generar alertas
-    const alertas = generarAlertas(resultados);
-
-    return { resultados, metricas, alertas };
-}
-
-// ========= ALGORITMOS DE ANÁLISIS MEJORADOS =========
-function calcularTendencia(movimientos, dias) {
-    if (movimientos.length < 7) return { direccion: '➡️ ESTABLE', fuerza: 0 };
-    
-    const ultimaSemana = movimientos.filter(m => 
-        m.fecha >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    );
-    const semanaAnterior = movimientos.filter(m => 
-        m.fecha >= new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) && 
-        m.fecha < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    );
-    
-    const consumoActual = ultimaSemana.reduce((sum, m) => sum + (m.tipo === 'salida' ? m.cantidad : -m.cantidad), 0);
-    const consumoAnterior = semanaAnterior.reduce((sum, m) => sum + (m.tipo === 'salida' ? m.cantidad : -m.cantidad), 0);
-    
-    const diferencia = consumoActual - consumoAnterior;
-    const porcentaje = consumoAnterior > 0 ? (diferencia / consumoAnterior) * 100 : 0;
-    
-    if (Math.abs(porcentaje) > 30) {
-        return { direccion: porcentaje > 0 ? '📈 ALTA' : '📉 BAJA', fuerza: Math.abs(porcentaje) };
-    }
-    
-    return { direccion: '➡️ ESTABLE', fuerza: Math.abs(porcentaje) };
-}
-
-function detectarEstacionalidad(movimientos) {
-    if (movimientos.length < 30) return 'NO_DATOS';
-    
-    // Agrupar por día de la semana
-    const porDia = [0, 0, 0, 0, 0, 0, 0];
-    movimientos.forEach(m => {
-        if (m.tipo === 'salida') {
-            const dia = m.fecha.getDay();
-            porDia[dia] += m.cantidad;
-        }
-    });
-    
-    const max = Math.max(...porDia);
-    const min = Math.min(...porDia);
-    const variacion = (max - min) / (max || 1);
-    
-    return variacion > 0.5 ? 'ESTACIONAL' : 'CONSTANTE';
-}
-
-function calcularVelocidadConsumo(movimientos, dias) {
-    const salidas = movimientos.filter(m => m.tipo === 'salida');
-    const totalSalidas = salidas.reduce((sum, m) => sum + m.cantidad, 0);
-    const consumoDiario = totalSalidas / dias;
-    
-    if (consumoDiario < 1) return 'LENTO';
-    if (consumoDiario < 5) return 'MODERADO';
-    return 'RÁPIDO';
-}
-
-function calcularDemandaDiaria(movimientos, dias) {
-    const salidas = movimientos.filter(m => m.tipo === 'salida');
-    const totalSalidas = salidas.reduce((sum, m) => sum + m.cantidad, 0);
-    return totalSalidas / dias;
-}
-
-function calcularVariabilidadDemanda(movimientos, demandaPromedio) {
-    if (movimientos.length < 2 || demandaPromedio === 0) return 0;
-    
-    const salidas = movimientos.filter(m => m.tipo === 'salida');
-    const diferencias = salidas.map(m => Math.pow(m.cantidad - demandaPromedio, 2));
-    const varianza = diferencias.reduce((a, b) => a + b, 0) / salidas.length;
-    
-    return Math.sqrt(varianza) / demandaPromedio;
-}
-
-function calcularPuntoPedido(demandaDiaria, leadTime, variabilidad, seguridad) {
-    const demandaLeadTime = demandaDiaria * leadTime;
-    const stockSeguridad = demandaLeadTime * variabilidad * seguridad;
-    return Math.ceil(demandaLeadTime + stockSeguridad);
-}
-
-function clasificarCriticidad(stockActual, puntoPedido, coberturaDias, velocidad, stockMinimo) {
-    const ratioStock = stockActual / puntoPedido;
-    
-    if (stockActual <= stockMinimo) {
-        return { nivel: '🚨 CRÍTICO', prioridad: 100 };
-    }
-    if (ratioStock <= 0.5) {
-        return { nivel: '⚠️ ALTO RIESGO', prioridad: 80 };
-    }
-    if (coberturaDias < 15 && velocidad === 'RÁPIDO') {
-        return { nivel: '🔶 ALERTA', prioridad: 60 };
-    }
-    if (coberturaDias < 30) {
-        return { nivel: '📋 VIGILAR', prioridad: 40 };
-    }
-    return { nivel: '✅ ESTABLE', prioridad: 20 };
-}
-
-function generarRecomendacion(stockActual, demandaDiaria, diasCobertura, puntoPedido, criticidad, estacionalidad) {
-    const stockDeseado = demandaDiaria * diasCobertura;
-    let cantidadBase = Math.max(0, stockDeseado - stockActual);
-    
-    // Ajustar por criticidad y estacionalidad
-    if (criticidad.nivel === '🚨 CRÍTICO') {
-        cantidadBase *= 1.5; // Urgente - comprar más
-    }
-    if (estacionalidad === 'ESTACIONAL') {
-        cantidadBase *= 1.2; // Prepararse para picos
-    }
-    
-    // Redondear y asegurar mínimo
-    const cantidad = Math.ceil(Math.max(cantidadBase, puntoPedido * 0.3));
-    
-    let texto = '';
-    if (cantidad === 0) {
-        texto = 'Stock suficiente';
-    } else if (criticidad.nivel === '🚨 CRÍTICO') {
-        texto = '🚨 COMPRA URGENTE';
-    } else if (cantidad > demandaDiaria * 30) {
-        texto = '📦 COMPRA PROGRAMADA';
-    } else {
-        texto = '🛒 REPONER STOCK';
-    }
-    
-    return { texto, cantidad };
-}
-
-// ========= VISUALIZACIÓN MEJORADA =========
-function mostrarResultadosIA(analisis) {
-    const tbody = document.querySelector('#tabla-ia-resultados tbody');
-    tbody.innerHTML = '';
-
-    analisis.resultados.forEach(item => {
-        const tr = document.createElement('tr');
-        tr.className = `fila-criticidad-${item.criticidad.toLowerCase().replace(/[^a-z]/g, '')}`;
-        
-        tr.innerHTML = `
-            <td>
-                <strong>${item.producto}</strong>
-                <br><small class="text-muted">${item.codigo}</small>
-            </td>
-            <td>${item.stockActual}</td>
-            <td>${item.demandaDiaria}</td>
-            <td>${item.coberturaDias} días</td>
-            <td>${item.puntoPedido}</td>
-            <td>
-                <span class="tendencia ${item.tendencia.includes('ALTA') ? 'tendencia-alta' : item.tendencia.includes('BAJA') ? 'tendencia-baja' : 'tendencia-estable'}">
-                    ${item.tendencia}
-                </span>
-            </td>
-            <td>
-                <span class="badge criticidad-${item.criticidad.toLowerCase().replace(/[^a-z]/g, '')}">
-                    ${item.criticidad}
-                </span>
-            </td>
-            <td><strong>${item.cantidadRecomendada > 0 ? item.cantidadRecomendada : '-'}</strong></td>
-            <td>${item.recomendacion}</td>
-            <td>S/ ${item.costoEstimado}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function mostrarMetricasIA(metricas) {
-    const contenedor = document.getElementById('metricas-ia');
-    if (!contenedor) return;
-
-    contenedor.innerHTML = `
-        <div class="metricas-grid">
-            <div class="metrica-card">
-                <div class="metrica-valor">${metricas.totalProductos}</div>
-                <div class="metrica-label">Total Productos</div>
-            </div>
-            <div class="metrica-card critica">
-                <div class="metrica-valor">${metricas.productosCriticos}</div>
-                <div class="metrica-label">Críticos</div>
-            </div>
-            <div class="metrica-card alerta">
-                <div class="metrica-valor">${metricas.productosAlerta}</div>
-                <div class="metrica-label">En Alerta</div>
-            </div>
-            <div class="metrica-card estable">
-                <div class="metrica-valor">${metricas.productosEstables}</div>
-                <div class="metrica-label">Estables</div>
-            </div>
-            <div class="metrica-card">
-                <div class="metrica-valor">S/ ${metricas.inversionTotal.toFixed(2)}</div>
-                <div class="metrica-label">Inversión Stock</div>
-            </div>
-            <div class="metrica-card riesgo">
-                <div class="metrica-valor">S/ ${metricas.riesgoTotal.toFixed(2)}</div>
-                <div class="metrica-label">Riesgo Potencial</div>
-            </div>
-        </div>
-    `;
-}
-
-function generarAlertasIA(alertas) {
-    const contenedor = document.getElementById('alertas-ia');
-    if (!contenedor || !alertas.length) return;
-
-    contenedor.innerHTML = `
-        <div class="alertas-container">
-            <h4>🚨 Alertas Prioritarias</h4>
-            ${alertas.map(alerta => `
-                <div class="alerta-item ${alerta.tipo}">
-                    <i class="fas ${alerta.icono}"></i>
-                    <span>${alerta.mensaje}</span>
-                </div>
-            `).join('')}
-        </div>
-    `;
-}
-
-function generarAlertas(resultados) {
-    const alertas = [];
-    
-    const criticos = resultados.filter(r => r.criticidad === '🚨 CRÍTICO');
-    if (criticos.length > 0) {
-        alertas.push({
-            tipo: 'critica',
-            icono: 'fa-exclamation-triangle',
-            mensaje: `${criticos.length} productos en estado CRÍTICO requieren atención inmediata`
-        });
-    }
-    
-    const sinMovimiento = resultados.filter(r => r.demandaDiaria === '0.00' && r.stockActual > 0);
-    if (sinMovimiento.length > 5) {
-        alertas.push({
-            tipo: 'advertencia',
-            icono: 'fa-chart-line',
-            mensaje: `${sinMovimiento.length} productos sin movimiento - considerar rotación`
-        });
-    }
-    
-    const altaVariabilidad = resultados.filter(r => parseFloat(r.variabilidad) > 50);
-    if (altaVariabilidad.length > 0) {
-        alertas.push({
-            tipo: 'info',
-            icono: 'fa-random',
-            mensaje: `${altaVariabilidad.length} productos con demanda variable - revisar patrones`
-        });
-    }
-    
-    return alertas;
-}
-
-// ========= FUNCIÓN PARA MOSTRAR APARTADO IA =========
-function mostrarApartadoIA() {
-    document.querySelectorAll('.admin-section').forEach(sec => sec.style.display = 'none');
-    document.getElementById('apartado-ia').style.display = 'block';
-    
-    // Actualizar navegación
-    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-    document.querySelector('.nav-link[onclick*="ia"]').classList.add('active');
-    
-    // Precargar librería PDF
-    cargarLibreriaPDF().catch(() => {
-        console.warn('No se pudo cargar la librería PDF');
-    });
-    
-    // Inicializar IA
-    setTimeout(() => {
-        inicializarIA();
-        calcularIAStockMejorado();
-    }, 500);
-}
-
-// ========= EXPORTAR REPORTE IA A PDF =========
-a// ========= EXPORTAR REPORTE IA A PDF - VERSIÓN CORREGIDA =========
-async function exportarIAPDF() {
-    try {
-        // Verificar que jsPDF esté disponible
-        if (typeof window.jspdf === 'undefined') {
-            alert("⚠️ Cargando librería PDF... Por favor espere.");
-            await cargarLibreriaPDF();
-        }
-
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('p', 'mm', 'a4');
-        
-        // Configuración inicial
-        const margin = 15;
-        let yPosition = margin;
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        
-        // ===== ENCABEZADO =====
-        doc.setFillColor(21, 85, 232);
-        doc.rect(0, 0, pageWidth, 25, 'F');
-        
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('REPORTE IA - PREDICCION DE STOCK', pageWidth / 2, 15, { align: 'center' });
-        
-        doc.setFontSize(10);
-        doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')}`, pageWidth / 2, 22, { align: 'center' });
-        
-        yPosition = 35;
-        
-        // ===== MÉTRICAS PRINCIPALES =====
-        doc.setFillColor(245, 245, 245);
-        doc.rect(margin, yPosition, pageWidth - 2 * margin, 40, 'F');
-        
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('METRICAS DEL SISTEMA', margin + 5, yPosition + 10);
-        
-        // Obtener métricas actuales
-        const metricasContainer = document.getElementById('metricas-ia');
-        if (metricasContainer) {
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'normal');
-            
-            const totalProductos = metricasContainer.querySelector('.metrica-card:nth-child(1) .metrica-valor')?.textContent || '0';
-            const productosCriticos = metricasContainer.querySelector('.metrica-card:nth-child(2) .metrica-valor')?.textContent || '0';
-            const productosAlerta = metricasContainer.querySelector('.metrica-card:nth-child(3) .metrica-valor')?.textContent || '0';
-            const productosEstables = metricasContainer.querySelector('.metrica-card:nth-child(4) .metrica-valor')?.textContent || '0';
-            const inversionStock = metricasContainer.querySelector('.metrica-card:nth-child(5) .metrica-valor')?.textContent || 'S/ 0.00';
-            const riesgoPotencial = metricasContainer.querySelector('.metrica-card:nth-child(6) .metrica-valor')?.textContent || 'S/ 0.00';
-            
-            const metricas = [
-                `Total Productos Analizados: ${totalProductos}`,
-                `Productos Criticos: ${productosCriticos}`,
-                `Productos en Alerta: ${productosAlerta}`,
-                `Productos Estables: ${productosEstables}`,
-                `Inversion en Stock: ${inversionStock}`,
-                `Riesgo Potencial: ${riesgoPotencial}`
-            ];
-            
-            metricas.forEach((metrica, index) => {
-                const x = margin + 5 + (index % 2) * 90;
-                const y = yPosition + 20 + Math.floor(index / 2) * 8;
-                doc.text(metrica, x, y);
-            });
-        }
-        
-        yPosition += 50;
-        
-        // ===== ALERTAS =====
-        const alertasContainer = document.getElementById('alertas-ia');
-        if (alertasContainer && alertasContainer.innerHTML.trim() !== '') {
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(231, 76, 60);
-            doc.text('ALERTAS PRIORITARIAS', margin, yPosition);
-            
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(0, 0, 0);
-            
-            const alertas = alertasContainer.querySelectorAll('.alerta-item');
-            let alertaY = yPosition + 10;
-            
-            alertas.forEach((alerta) => {
-                if (alertaY > pageHeight - 30) {
-                    doc.addPage();
-                    alertaY = margin + 10;
-                }
-                
-                const texto = alerta.querySelector('span')?.textContent || '';
-                // Limpiar texto de caracteres especiales
-                const textoLimpio = texto.replace(/[^\x20-\x7E]/g, '');
-                
-                doc.text(`• ${textoLimpio}`, margin + 5, alertaY);
-                alertaY += 6;
-            });
-            
-            yPosition = alertaY + 10;
-        } else {
-            doc.setFontSize(10);
-            doc.setTextColor(100, 100, 100);
-            doc.text('No hay alertas criticas', margin, yPosition);
-            yPosition += 15;
-        }
-        
-        // ===== RECOMENDACIONES DETALLADAS =====
-        if (yPosition > pageHeight - 50) {
-            doc.addPage();
-            yPosition = margin;
-        }
-        
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(21, 85, 232);
-        doc.text('RECOMENDACIONES DE COMPRA INTELIGENTES', margin, yPosition);
-        yPosition += 10;
-        
-        // Obtener datos de la tabla
-        const tabla = document.getElementById('tabla-ia-resultados');
-        const filas = tabla?.querySelectorAll('tbody tr') || [];
-        
-        if (filas.length === 0) {
-            doc.setFontSize(10);
-            doc.setTextColor(100, 100, 100);
-            doc.text('No hay datos para mostrar. Ejecute el analisis IA primero.', margin, yPosition);
-        } else {
-            // Configurar columnas más ajustadas
-            const columnas = [
-                { header: 'Producto', width: 45 },
-                { header: 'Stock', width: 12 },
-                { header: 'Dem/Dia', width: 15 },
-                { header: 'Cobert', width: 15 },
-                { header: 'P.Pedido', width: 15 },
-                { header: 'Estado', width: 18 },
-                { header: 'Cant.', width: 12 },
-                { header: 'Accion', width: 25 }
-            ];
-            
-            // Encabezados de tabla
-            doc.setFontSize(7);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(255, 255, 255);
-            doc.setFillColor(44, 90, 160);
-            
-            let xPosition = margin;
-            columnas.forEach(col => {
-                doc.rect(xPosition, yPosition, col.width, 6, 'F');
-                // Centrar texto en encabezados
-                const textWidth = doc.getTextWidth(col.header);
-                doc.text(col.header, xPosition + (col.width - textWidth) / 2, yPosition + 4);
-                xPosition += col.width;
-            });
-            
-            yPosition += 6;
-            
-            // Datos de la tabla
-            doc.setFontSize(6);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(0, 0, 0);
-            
-            filas.forEach((fila) => {
-                if (yPosition > pageHeight - 15) {
-                    doc.addPage();
-                    yPosition = margin;
-                    
-                    // Repetir encabezados en nueva página
-                    doc.setFillColor(44, 90, 160);
-                    doc.setTextColor(255, 255, 255);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(7);
-                    let x = margin;
-                    columnas.forEach(col => {
-                        doc.rect(x, yPosition, col.width, 6, 'F');
-                        const textWidth = doc.getTextWidth(col.header);
-                        doc.text(col.header, x + (col.width - textWidth) / 2, yPosition + 4);
-                        x += col.width;
-                    });
-                    yPosition += 6;
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(6);
-                    doc.setTextColor(0, 0, 0);
-                }
-                
-                const celdas = fila.querySelectorAll('td');
-                if (celdas.length >= 8) {
-                    xPosition = margin;
-                    
-                    // Producto (recortar si es muy largo)
-                    let producto = celdas[0].querySelector('strong')?.textContent || celdas[0].textContent || '';
-                    producto = producto.replace(/[^\x20-\x7E]/g, ''); // Limpiar caracteres especiales
-                    if (producto.length > 25) producto = producto.substring(0, 22) + '...';
-                    doc.text(producto, xPosition + 2, yPosition + 4);
-                    xPosition += columnas[0].width;
-                    
-                    // Stock Actual
-                    const stock = celdas[1].textContent || '0';
-                    doc.text(stock, xPosition + 2, yPosition + 4);
-                    xPosition += columnas[1].width;
-                    
-                    // Demanda Diaria
-                    const demanda = celdas[2].textContent || '0';
-                    doc.text(demanda, xPosition + 2, yPosition + 4);
-                    xPosition += columnas[2].width;
-                    
-                    // Cobertura Días
-                    const cobertura = celdas[3].textContent || '0';
-                    doc.text(cobertura, xPosition + 2, yPosition + 4);
-                    xPosition += columnas[3].width;
-                    
-                    // Punto Pedido
-                    const puntoPedido = celdas[4].textContent || '0';
-                    doc.text(puntoPedido, xPosition + 2, yPosition + 4);
-                    xPosition += columnas[4].width;
-                    
-                    // Criticidad (limpiar emojis)
-                    let criticidad = celdas[6].textContent || '';
-                    criticidad = criticidad.replace(/[^\x20-\x7E]/g, '') // Remover emojis
-                                          .replace('CRITICO', 'CRIT')
-                                          .replace('ALTO RIESGO', 'ALTO')
-                                          .replace('ALERTA', 'ALERT')
-                                          .replace('VIGILAR', 'VIGIL')
-                                          .replace('ESTABLE', 'EST');
-                    if (criticidad.length > 8) criticidad = criticidad.substring(0, 7);
-                    doc.text(criticidad, xPosition + 2, yPosition + 4);
-                    xPosition += columnas[5].width;
-                    
-                    // Cantidad Recomendada
-                    const cantidad = celdas[7].textContent || '-';
-                    doc.text(cantidad, xPosition + 2, yPosition + 4);
-                    xPosition += columnas[6].width;
-                    
-                    // Acción Recomendada
-                    let accion = celdas[8].textContent || '';
-                    accion = accion.replace(/[^\x20-\x7E]/g, '') // Remover emojis
-                                  .replace('COMPRA URGENTE', 'URGENTE')
-                                  .replace('COMPRA PROGRAMADA', 'PROGRAMADA')
-                                  .replace('REPONER STOCK', 'REPONER')
-                                  .replace('Stock suficiente', 'OK');
-                    if (accion.length > 15) accion = accion.substring(0, 12) + '...';
-                    doc.text(accion, xPosition + 2, yPosition + 4);
-                    
-                    // Línea separadora
-                    doc.setDrawColor(200, 200, 200);
-                    doc.line(margin, yPosition + 5, pageWidth - margin, yPosition + 5);
-                    
-                    yPosition += 6;
-                }
-            });
-        }
-        
-        // ===== PIE DE PÁGINA =====
-        const totalPaginas = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= totalPaginas; i++) {
-            doc.setPage(i);
-            doc.setFontSize(8);
-            doc.setTextColor(100, 100, 100);
-            doc.text(`Pagina ${i} de ${totalPaginas}`, pageWidth - margin - 5, pageHeight - 10, { align: 'right' });
-            doc.text('Sistema de Inventario - IA Predictiva', margin + 5, pageHeight - 10);
-        }
-        
-        // ===== GUARDAR PDF =====
-        const fecha = new Date().toISOString().split('T')[0];
-        doc.save(`Reporte_IA_Prediccion_${fecha}.pdf`);
-        
-        alert('✅ PDF generado exitosamente!');
-        
-    } catch (error) {
-        console.error('Error al generar PDF:', error);
-        alert('❌ Error al generar el PDF: ' + error.message);
-    }
-}
-
-// ===== CARGAR LIBRERÍA PDF DINÁMICAMENTE =====
-function cargarLibreriaPDF() {
-    return new Promise((resolve, reject) => {
-        if (typeof window.jspdf !== 'undefined') {
-            resolve();
-            return;
-        }
-        
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-        script.onload = () => {
-            setTimeout(resolve, 500); // Pequeño delay para asegurar carga
-        };
-        script.onerror = () => reject(new Error('Error al cargar librería PDF'));
-        document.head.appendChild(script);
-    });
-}
-
-// ===== CARGAR LIBRERÍA PDF DINÁMICAMENTE =====
-function cargarLibreriaPDF() {
-    return new Promise((resolve, reject) => {
-        if (typeof window.jspdf !== 'undefined') {
-            resolve();
-            return;
-        }
-        
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Error al cargar librería PDF'));
-        document.head.appendChild(script);
-    });
-}
-
-// ========= INICIALIZACIÓN MEJORADA =========
-function mostrarApartadoIA() {
-    document.querySelectorAll('.admin-section').forEach(sec => sec.style.display = 'none');
-    document.getElementById('apartado-ia').style.display = 'block';
-    
-    // Actualizar navegación
-    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-    document.querySelector('.nav-link[onclick*="ia"]').classList.add('active');
-    
-    // Inicializar IA
-    setTimeout(() => {
-        inicializarIA();
-        calcularIAStockMejorado();
-    }, 500);
-}
-
-// Lee salidas desde la tabla #tabla-salida (fecha, producto, cantidad)
-function recolectarSalidas(diasAnalisis) {
-  const tbody = document.querySelector('#tabla-salida tbody');
-  if (!tbody) return [];
-
-  const desde = new Date();
-  desde.setDate(desde.getDate() - Number(diasAnalisis));
-
-  const salidas = [];
-  [...tbody.rows].forEach(tr => {
-    // Ajusta estos índices a tu tabla real
-    // Ejemplo: [0]=fecha, [1]=código, [2]=producto, [3]=cantidad
-    const celdas = tr.querySelectorAll('td');
-    if (celdas.length < 4) return;
-
-    const fechaTxt = (celdas[0].innerText || '').trim();
-    const producto = (celdas[2].innerText || '').trim();
-    const cantidad = Number((celdas[3].innerText || '0').replace(/[^0-9.-]/g, ''));
-
-    const fecha = new Date(fechaTxt);
-    if (!isNaN(fecha) && fecha >= desde && cantidad > 0 && producto) {
-      salidas.push({ fecha, producto, cantidad });
-    }
-  });
-  return salidas;
-}
-
-// Lee stock actual por producto desde #tabla-inventario
-function recolectarStockActual() {
-  const tbody = document.querySelector('#tabla-inventario tbody');
-  const stockMap = new Map();
-  if (!tbody) return stockMap;
-
-  [...tbody.rows].forEach(tr => {
-    // Ajusta índices según tus columnas reales
-    // Ejemplo: [0]=Código, [1]=Producto, [2]=Categoría, [3]=Stock
-    const tds = tr.querySelectorAll('td');
-    if (tds.length < 4) return;
-
-    const producto = (tds[1].innerText || '').trim();
-    const stock = Number((tds[3].innerText || '0').replace(/[^0-9.-]/g, ''));
-    if (producto) stockMap.set(producto, (stockMap.get(producto) || 0) + (isNaN(stock) ? 0 : stock));
-  });
-
-  return stockMap;
-}
-
-// Calcula promedio diario por producto a partir de salidas
-function promedioDiarioPorProducto(salidas, diasAnalisis) {
-  const sumas = new Map();
-  salidas.forEach(s => {
-    sumas.set(s.producto, (sumas.get(s.producto) || 0) + s.cantidad);
-  });
-
-  const promedios = new Map();
-  const dias = Math.max(1, Number(diasAnalisis));
-  sumas.forEach((total, prod) => {
-    promedios.set(prod, total / dias);
-  });
-  return promedios;
-}
-
-// Dibuja resultados en tabla
-function renderIAResultados(rows) {
-  const tbody = document.querySelector('#tabla-ia-resultados tbody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-
-  rows
-    .sort((a,b) => b.recomendada - a.recomendada) // ordenar por mayor recomendación
-    .forEach(r => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${r.producto}</td>
-        <td>${r.promedioDiario.toFixed(2)}</td>
-        <td>${r.stockActual}</td>
-        <td>${r.puntoPedido}</td>
-        <td><strong>${r.recomendada > 0 ? Math.ceil(r.recomendada) : 0}</strong></td>
-        <td>${r.observacion}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-}
-
-
-
-// Función principal
-function calcularIAStock() {
-  const diasAnalisis  = Number(document.getElementById('ia-dias-analisis').value || 30);
-  const diasCobertura = Number(document.getElementById('ia-dias-cobertura').value || 30);
-  const leadTime      = Number(document.getElementById('ia-leadtime').value || 5);
-  const seguridadPct  = Number(document.getElementById('ia-seguridad').value || 20) / 100;
-
-  const salidas = recolectarSalidas(diasAnalisis);
-  const stockMap = recolectarStockActual();
-  const promMap = promedioDiarioPorProducto(salidas, diasAnalisis);
-
-  const resultados = [];
-
-  // Unir por producto presente en salidas o inventario
-  const productos = new Set([...promMap.keys(), ...stockMap.keys()]);
-  productos.forEach(prod => {
-    const promedio = promMap.get(prod) || 0;
-    const stockActual = stockMap.get(prod) || 0;
-
-    // Punto de pedido = demanda diaria * lead time + seguridad
-    const puntoPedido = Math.ceil(promedio * leadTime * (1 + seguridadPct));
-
-    // Cobertura objetivo = demanda diaria * días cobertura
-    const objetivo = promedio * diasCobertura;
-
-    // Recomendación: comprar lo necesario para alcanzar la cobertura objetivo
-    let recomendada = Math.max(0, objetivo - stockActual);
-    let observacion = 'OK';
-    if (stockActual <= puntoPedido) {
-      observacion = '🚨 Por debajo del punto de pedido';
-    } else if (recomendada > 0) {
-      observacion = '⚠️ Reponer para cobertura';
-    }
-
-    resultados.push({
-      producto: prod,
-      promedioDiario: promedio,
-      stockActual,
-      puntoPedido,
-      recomendada,
-      observacion
-    });
-  });
-
-  // Filtra solo productos con recomendación > 0 o alerta
-  const filtrados = resultados.filter(r => r.recomendada > 0 || r.stockActual <= r.puntoPedido);
-  renderIAResultados(filtrados);
-}
-
-function cambiarSeccion(idSeccion, elLink) {
-  document.querySelectorAll('.admin-section').forEach(s => s.style.display = 'none');
-  const destino = document.getElementById(idSeccion);
-  if (destino) destino.style.display = 'block';
-
-  // activar link
-  document.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
-  if (elLink) elLink.classList.add('active');
-}
 
 // Función para actualizar estadísticas en la página de inicio
 async function actualizarEstadisticas() {
@@ -1156,186 +186,6 @@ async function actualizarEstadisticas() {
     } catch (error) {
         console.error("Error al actualizar estadísticas:", error);
     }
-}
-
-// =========================================================
-// 📊 Exportar a Excel (.xlsx) con 4 hojas — VERSIÓN CON FORMATO BÁSICO
-// =========================================================
-async function exportarExcelInventario() {
-  try {
-    if (typeof XLSX === 'undefined') {
-      alert('⚠️ Falta la librería XLSX. Agrega <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script> antes de script.js');
-      return;
-    }
-
-    // ===== 1) GUARDAR ESTADO ACTUAL =====
-    const adminPanel = document.getElementById('dashboard-admin');
-    const mechanicPanel = document.getElementById('dashboard-mecanico');
-    
-    // Guardar estados actuales
-    const adminWasVisible = adminPanel.style.display === 'block';
-    const mechanicWasVisible = mechanicPanel.style.display === 'block';
-    
-    // ===== 2) MOSTRAR SOLO EL PANEL DE ADMINISTRADOR =====
-    if (adminPanel) adminPanel.style.display = 'block';
-    if (mechanicPanel) mechanicPanel.style.display = 'none';
-
-    // ===== 3) OBTENER DATOS DIRECTAMENTE DE FIRESTORE =====
-    if (!db) {
-      alert("❌ Error: Base de datos no disponible");
-      return;
-    }
-
-    const wb = XLSX.utils.book_new();
-
-    // Función para crear una hoja con formato básico
-    const crearHojaConFormato = (datos, nombreHoja) => {
-      if (datos.length === 0) return null;
-
-      // Crear la hoja de trabajo
-      const ws = XLSX.utils.json_to_sheet(datos);
-      
-      // Ajustar anchos de columnas automáticamente
-      const range = XLSX.utils.decode_range(ws['!ref']);
-      const colWidths = [];
-      
-      for (let C = range.s.c; C <= range.e.c; C++) {
-        let maxLength = 10; // Ancho mínimo
-        for (let R = range.s.r; R <= range.e.r; R++) {
-          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
-          if (ws[cellAddress] && ws[cellAddress].v) {
-            const cellLength = ws[cellAddress].v.toString().length;
-            if (cellLength > maxLength) maxLength = cellLength;
-          }
-        }
-        // Limitar el ancho máximo
-        colWidths.push({ wch: Math.min(maxLength + 2, 30) });
-      }
-      
-      ws['!cols'] = colWidths;
-      
-      // Agregar auto-filtro a los encabezados
-      ws['!autofilter'] = { ref: XLSX.utils.encode_range(range) };
-      
-      return ws;
-    };
-
-    try {
-      // HOJA 1: INVENTARIO (STOCK)
-      const inventarioSnapshot = await db.collection('inventario').orderBy('nombre').get();
-      const datosInventario = inventarioSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          'FECHA ACTUALIZACIÓN': data.fechaActualizacion || 'N/A',
-          'CÓDIGO': data.codigo || '',
-          'NOMBRE DEL PRODUCTO': data.nombre || '',
-          'LOTE': data.lote || '',
-          'COSTO UNITARIO (S/.)': `S/ ${parseFloat(data.costoUnitario || 0).toFixed(2)}`,
-          'PRECIO VENTA (S/.)': `S/ ${parseFloat(data.precioVenta || 0).toFixed(2)}`,
-          'STOCK ACTUAL': data.stock || 0
-        };
-      });
-      
-      if (datosInventario.length > 0) {
-        const wsInventario = crearHojaConFormato(datosInventario, 'Inventario (Stock)');
-        XLSX.utils.book_append_sheet(wb, wsInventario, '📦 INVENTARIO');
-      }
-
-      // HOJA 2: HISTORIAL DE ENTRADAS
-      const entradasSnapshot = await db.collection('historialEntradas').orderBy('fecha', 'desc').get();
-      const datosEntradas = entradasSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          'FECHA DE ENTRADA': data.fecha || 'N/A',
-          'CÓDIGO PRODUCTO': data.codigo || '',
-          'NOMBRE DEL PRODUCTO': data.nombre || '',
-          'CANTIDAD INGRESADA': data.cantidad || 0
-        };
-      });
-      
-      if (datosEntradas.length > 0) {
-        const wsEntradas = crearHojaConFormato(datosEntradas, 'Historial de Entradas');
-        XLSX.utils.book_append_sheet(wb, wsEntradas, '⬇️ ENTRADAS');
-      }
-
-      // HOJA 3: HISTORIAL DE SALIDAS
-      const salidasSnapshot = await db.collection('repuestosSalida').orderBy('fecha', 'desc').get();
-      const datosSalidas = salidasSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          'FECHA DE SALIDA': data.fecha || 'N/A',
-          'REPUESTO UTILIZADO': data.repuesto || '',
-          'CLIENTE': data.cliente || '',
-          'N° ORDEN TRABAJO': data.numeroOT || '',
-          'CANTIDAD RETIRADA': data.cantidad || 0,
-          'PLACA VEHÍCULO': data.placa || 'N/A',
-          'KILOMETRAJE': data.kilometraje || 0
-        };
-      });
-      
-      if (datosSalidas.length > 0) {
-        const wsSalidas = crearHojaConFormato(datosSalidas, 'Historial de Salidas');
-        XLSX.utils.book_append_sheet(wb, wsSalidas, '⬆️ SALIDAS');
-      }
-
-      // HOJA 4: HISTORIAL DE SOLICITUDES
-      const solicitudesSnapshot = await db.collection('solicitudesRepuestos').orderBy('fecha', 'desc').get();
-      const datosSolicitudes = solicitudesSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          'FECHA SOLICITUD': data.fecha || 'N/A',
-          'MECÁNICO SOLICITANTE': data.mecanico || '',
-          'REPUESTO SOLICITADO': data.repuesto || '',
-          'CANTIDAD SOLICITADA': data.cantidad || 0,
-          'ESTADO ACTUAL': data.estado || ''
-        };
-      });
-      
-      if (datosSolicitudes.length > 0) {
-        const wsSolicitudes = crearHojaConFormato(datosSolicitudes, 'Historial de Solicitudes');
-        XLSX.utils.book_append_sheet(wb, wsSolicitudes, '📋 SOLICITUDES');
-      }
-
-      // ===== 4) VERIFICAR QUE HAY DATOS =====
-      if (wb.SheetNames.length === 0) {
-        alert('⚠️ No hay datos para exportar.');
-        return;
-      }
-
-      // ===== 5) GENERAR Y DESCARGAR EXCEL =====
-      const fecha = new Date().toISOString().split('T')[0];
-      XLSX.writeFile(wb, `INVENTARIO_COMPLETO_${fecha}.xlsx`);
-      
-      alert(`✅ EXCEL GENERADO EXITOSAMENTE!\n\n📊 CONTIENE ${wb.SheetNames.length} HOJAS:\n• 📦 INVENTARIO (Stock actual)\n• ⬇️ ENTRADAS (Historial)\n• ⬆️ SALIDAS (Historial)  \n• 📋 SOLICITUDES (Historial)\n\n✨ Los encabezados tienen auto-filtro para fácil organización`);
-
-    } catch (error) {
-      console.error("Error al obtener datos de Firestore:", error);
-      alert("❌ Error al obtener los datos para el Excel.");
-    }
-
-  } catch (err) {
-    console.error('Error al exportar Excel:', err);
-    alert('❌ Error al generar el Excel. Revisa la consola (F12).');
-  } finally {
-    // ===== 6) RESTAURAR ESTADO ORIGINAL =====
-    if (typeof mostrarApartado === 'function') {
-      try {
-        const navLinkActivo = document.querySelector('.nav-link.active');
-        if (navLinkActivo) {
-          const onclickAttr = navLinkActivo.getAttribute('onclick');
-          if (onclickAttr && onclickAttr.includes("mostrarApartado")) {
-            const match = onclickAttr.match(/mostrarApartado\('([^']*)'\)/);
-            if (match && match[1] !== undefined) {
-              mostrarApartado(match[1]);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("No se pudo restaurar la sección activa:", e);
-        mostrarApartado('');
-      }
-    }
-  }
 }
 
 // --- FUNCIONES DE AUTOCOMPLETAR ---
@@ -2019,12 +869,12 @@ function filtrarRepuestosMecanicoPorNombre() {
     });
 }
 
-async function exportarPDF() {
+async function exportarExcel() {
     alert("Generando reporte... Esto puede tardar unos segundos.");
     
     if (!db) {
         alert("El sistema no está listo para exportar. Intente nuevamente.");
-        console.error("Firestore no está inicializado (exportarPDF)");
+        console.error("Firestore no está inicializado (exportarExcel)");
         return;
     }
 
@@ -2652,89 +1502,187 @@ function getChartOptions(title, yAxisLabel, isMultiLine = false) {
 }
 
 // ====== VERSIÓN ALTERNATIVA MÁS SIMPLE ======
-async function exportarGraficosPDF() {
-    alert("Generando PDF...");
+async function exportarReporteExcel() {
+    alert("Generando reporte en Excel... Esto puede tardar unos segundos.");
+    
+    if (!db) {
+        alert("El sistema no está listo para exportar. Intente nuevamente.");
+        return;
+    }
 
     try {
-        // Verifica que jsPDF esté disponible
-        if (!window.jspdf || !window.jspdf.jsPDF) {
-            alert("⚠️ Falta la librería jsPDF. Agrega el <script> antes de script.js en tu HTML.");
-            return;
-        }
+        // Crear un nuevo workbook
+        const wb = XLSX.utils.book_new();
+        
+        // Obtener datos de todas las colecciones
+        const [inventarioSnapshot, entradasSnapshot, salidasSnapshot, solicitudesSnapshot] = await Promise.all([
+            db.collection('inventario').get(),
+            db.collection('historialEntradas').get(),
+            db.collection('repuestosSalida').get(),
+            db.collection('solicitudesRepuestos').get()
+        ]);
 
-        // Inicializa jsPDF
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('p', 'mm', 'a4'); // A4 vertical
-
-        // ====== ENCABEZADO ======
-        const fecha = new Date().toLocaleDateString('es-ES');
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(67, 97, 238); // Azul título
-        doc.setFontSize(16);
-        doc.text('Reporte de Gráficos - Sistema de Inventario', 105, 15, { align: 'center' });
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(11);
-        doc.setTextColor(85, 85, 85);
-        doc.text(`Generado: ${fecha}`, 105, 22, { align: 'center' });
-
-        // ====== GRÁFICOS (en cuadrícula 2x2) ======
-        const charts = [
-            { id: 'chartMovimientosDia',       titulo: 'Movimientos por Día' },
-            { id: 'chartProductosMovimientos', titulo: 'Productos con Más Movimientos' },
-            { id: 'chartDistribucionStock',    titulo: 'Distribución de Stock' },
-            { id: 'chartTendenciaMensual',     titulo: 'Tendencia Mensual' }
+        // ====== HOJA 1: RESUMEN EJECUTIVO ======
+        const datosResumen = [
+            ['REPORTE DE INVENTARIO - RESUMEN EJECUTIVO'],
+            ['Generado:', new Date().toLocaleDateString('es-ES')],
+            [''],
+            ['ESTADÍSTICAS PRINCIPALES'],
+            ['Total Productos en Inventario:', inventarioSnapshot.size],
+            ['Productos con Stock Bajo:', inventarioSnapshot.docs.filter(doc => doc.data().stock <= 5).length],
+            ['Total Entradas Registradas:', entradasSnapshot.size],
+            ['Total Salidas Registradas:', salidasSnapshot.size],
+            ['Solicitudes Pendientes:', solicitudesSnapshot.docs.filter(doc => doc.data().estado === 'Pendiente').length],
+            [''],
+            ['VALOR TOTAL DEL INVENTARIO'],
+            ['Valor en Stock (S/):', inventarioSnapshot.docs.reduce((sum, doc) => {
+                const item = doc.data();
+                return sum + (item.stock * parseFloat(item.costoUnitario || 0));
+            }, 0).toFixed(2)]
         ];
 
-        // Medidas del layout
-        const marginX = 12;
-        const marginTop = 30;
-        const gap = 6;
-        const cellW = 90;
-        const cellH = 85;
-
-        // Posiciones exactas en mm (para que quepan perfectamente en A4)
-        const positions = [
-            { x: marginX, y: marginTop },                          // Arriba izquierda
-            { x: marginX + cellW + gap, y: marginTop },            // Arriba derecha
-            { x: marginX, y: marginTop + cellH + gap },            // Abajo izquierda
-            { x: marginX + cellW + gap, y: marginTop + cellH + gap } // Abajo derecha
+        const wsResumen = XLSX.utils.aoa_to_sheet(datosResumen);
+        
+        // Formato de la hoja de resumen
+        wsResumen['!cols'] = [
+            { width: 30 },
+            { width: 20 }
         ];
 
-        // ====== DIBUJAR CADA GRÁFICO ======
-        for (let i = 0; i < charts.length; i++) {
-            const { id, titulo } = charts[i];
-            const { x, y } = positions[i];
-            const canvas = document.getElementById(id);
-            if (!canvas) continue;
+        // ====== HOJA 2: INVENTARIO COMPLETO ======
+        const datosInventario = [
+            ['INVENTARIO COMPLETO'],
+            ['Fecha', 'Código', 'Nombre', 'Lote', 'Costo Unitario (S/.)', 'Precio Venta (S/.)', 'Stock', 'Valor Total (S/.)']
+        ];
 
-            // Título encima del gráfico
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-            doc.setTextColor(21, 85, 232);
-            doc.text(titulo, x + cellW / 2, y - 3, { align: 'center' });
+        inventarioSnapshot.forEach(doc => {
+            const item = doc.data();
+            const valorTotal = (item.stock * parseFloat(item.costoUnitario || 0)).toFixed(2);
+            datosInventario.push([
+                item.fechaActualizacion || 'N/A',
+                item.codigo,
+                item.nombre,
+                item.lote || 'N/A',
+                parseFloat(item.costoUnitario).toFixed(2),
+                parseFloat(item.precioVenta).toFixed(2),
+                item.stock,
+                valorTotal
+            ]);
+        });
 
-            // Imagen del canvas
-            const imgData = canvas.toDataURL('image/png', 1.0);
-            doc.addImage(imgData, 'PNG', x, y, cellW, cellH);
-        }
+        const wsInventario = XLSX.utils.aoa_to_sheet(datosInventario);
 
-        // ====== PIE DE PÁGINA ======
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(130, 130, 130);
-        doc.text('Sistema de Inventario – Generado automáticamente', 105, 290, { align: 'center' });
+        // ====== HOJA 3: MOVIMIENTOS ======
+        const datosMovimientos = [
+            ['REGISTRO DE MOVIMIENTOS'],
+            ['Tipo', 'Fecha', 'Producto/Repuesto', 'Cantidad', 'Cliente/Proveedor', 'N° OT', 'Detalles']
+        ];
 
-        // ====== GUARDAR ======
-        doc.save('reporte_graficos.pdf');
-        alert("✅ PDF generado correctamente en una sola hoja.");
+        // Agregar entradas
+        entradasSnapshot.forEach(doc => {
+            const item = doc.data();
+            datosMovimientos.push([
+                'ENTRADA',
+                item.fecha,
+                item.nombre,
+                item.cantidad,
+                'PROVEEDOR',
+                'N/A',
+                `Código: ${item.codigo}`
+            ]);
+        });
+
+        // Agregar salidas
+        salidasSnapshot.forEach(doc => {
+            const item = doc.data();
+            datosMovimientos.push([
+                'SALIDA',
+                item.fecha,
+                item.repuesto,
+                item.cantidad,
+                item.cliente,
+                item.numeroOT,
+                `Placa: ${item.placa || 'N/A'}, KM: ${item.kilometraje || 'N/A'}`
+            ]);
+        });
+
+        const wsMovimientos = XLSX.utils.aoa_to_sheet(datosMovimientos);
+
+        // ====== HOJA 4: SOLICITUDES ======
+        const datosSolicitudes = [
+            ['SOLICITUDES DE REPUESTOS'],
+            ['Fecha', 'Mecánico', 'Repuesto', 'Cantidad', 'Estado', 'Código']
+        ];
+
+        solicitudesSnapshot.forEach(doc => {
+            const solicitud = doc.data();
+            datosSolicitudes.push([
+                solicitud.fecha,
+                solicitud.mecanico,
+                solicitud.repuesto,
+                solicitud.cantidad,
+                solicitud.estado,
+                solicitud.codigo || 'N/A'
+            ]);
+        });
+
+        const wsSolicitudes = XLSX.utils.aoa_to_sheet(datosSolicitudes);
+
+        // ====== HOJA 5: ANÁLISIS DE STOCK ======
+        const datosAnalisis = [
+            ['ANÁLISIS DE STOCK'],
+            ['Categoría', 'Cantidad', 'Porcentaje'],
+            ['Stock Crítico (≤ 2)', 0, '0%'],
+            ['Stock Bajo (3-5)', 0, '0%'],
+            ['Stock Normal (6-20)', 0, '0%'],
+            ['Stock Alto (>20)', 0, '0%']
+        ];
+
+        // Calcular categorías de stock
+        let stockCritico = 0, stockBajo = 0, stockNormal = 0, stockAlto = 0;
+        
+        inventarioSnapshot.forEach(doc => {
+            const stock = doc.data().stock;
+            if (stock <= 2) stockCritico++;
+            else if (stock <= 5) stockBajo++;
+            else if (stock <= 20) stockNormal++;
+            else stockAlto++;
+        });
+
+        const totalProductos = inventarioSnapshot.size;
+        
+        datosAnalisis[2][1] = stockCritico;
+        datosAnalisis[2][2] = ((stockCritico / totalProductos) * 100).toFixed(1) + '%';
+        
+        datosAnalisis[3][1] = stockBajo;
+        datosAnalisis[3][2] = ((stockBajo / totalProductos) * 100).toFixed(1) + '%';
+        
+        datosAnalisis[4][1] = stockNormal;
+        datosAnalisis[4][2] = ((stockNormal / totalProductos) * 100).toFixed(1) + '%';
+        
+        datosAnalisis[5][1] = stockAlto;
+        datosAnalisis[5][2] = ((stockAlto / totalProductos) * 100).toFixed(1) + '%';
+
+        const wsAnalisis = XLSX.utils.aoa_to_sheet(datosAnalisis);
+
+        // ====== AGREGAR HOJAS AL WORKBOOK ======
+        XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen Ejecutivo');
+        XLSX.utils.book_append_sheet(wb, wsInventario, 'Inventario Completo');
+        XLSX.utils.book_append_sheet(wb, wsMovimientos, 'Movimientos');
+        XLSX.utils.book_append_sheet(wb, wsSolicitudes, 'Solicitudes');
+        XLSX.utils.book_append_sheet(wb, wsAnalisis, 'Análisis Stock');
+
+        // ====== GENERAR ARCHIVO ======
+        const fecha = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `Reporte_Inventario_${fecha}.xlsx`);
+        
+        alert("✅ Reporte de Excel generado exitosamente!\n\nEl archivo contiene:\n• Resumen Ejecutivo\n• Inventario Completo\n• Movimientos\n• Solicitudes\n• Análisis de Stock");
 
     } catch (error) {
-        console.error("Error al generar PDF:", error);
-        alert("❌ Error al generar el PDF. Revisa la consola (F12).");
+        console.error("Error al generar reporte Excel:", error);
+        alert("❌ Error al generar el reporte de Excel. Por favor, intente nuevamente.");
     }
 }
-
 
 // Función para calcular fecha límite según período
 // ====== FUNCIÓN CORREGIDA PARA CALCULAR FECHA LÍMITE ======
@@ -2761,6 +1709,135 @@ function calcularFechaLimite(periodo) {
     }
     
     return fecha;
+}
+
+// ====== EXPORTAR REPORTES A PDF (incluye todos los gráficos) ======
+async function exportarReportePDF() {
+    try {
+        const contenedor = document.getElementById('apartado-reportes');
+        if (!contenedor) {
+            alert('No se encontró la sección de reportes.');
+            return;
+        }
+
+        // Asegurar que la sección esté visible y actualizada
+        const estabaOculto = contenedor.style.display === 'none' || getComputedStyle(contenedor).display === 'none';
+        if (estabaOculto) {
+            mostrarApartado('reportes');
+        } else {
+            await generarReportes();
+        }
+
+        // Pequeño retraso para que los gráficos terminen de renderizar
+        await new Promise(r => setTimeout(r, 500));
+
+        const fecha = new Date().toISOString().slice(0, 10);
+        const opt = {
+            margin:       10, // mm
+            filename:     `Reporte_Inventario_${fecha}.pdf`,
+            image:        { type: 'jpeg', quality: 0.95 },
+            html2canvas:  { scale: 2, useCORS: true, logging: false },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak:    { mode: ['avoid-all'] }
+        };
+
+        await html2pdf().set(opt).from(contenedor).save();
+
+        // Volver a la vista principal si estaba oculta
+        if (estabaOculto) {
+            mostrarApartado('');
+        }
+    } catch (error) {
+        console.error('Error al exportar PDF:', error);
+        alert('Ocurrió un error al exportar el PDF.');
+    }
+}
+
+// ====== EXPORTAR EXCEL (4 hojas: Inventario, Entradas, Salidas, Solicitudes) ======
+async function exportarExcel() {
+    if (!db) {
+        alert("El sistema no está listo para exportar. Intente nuevamente.");
+        return;
+    }
+
+    try {
+        const wb = XLSX.utils.book_new();
+        const [inventarioSnapshot, entradasSnapshot, salidasSnapshot, solicitudesSnapshot] = await Promise.all([
+            db.collection('inventario').get(),
+            db.collection('historialEntradas').get(),
+            db.collection('repuestosSalida').get(),
+            db.collection('solicitudesRepuestos').get()
+        ]);
+
+        // Hoja: Inventario (stock actual)
+        const datosInventario = [
+            ['Fecha', 'Código', 'Nombre', 'Lote', 'Costo Unitario (S/.)', 'Precio Venta (S/.)', 'Stock']
+        ];
+        inventarioSnapshot.forEach(doc => {
+            const it = doc.data();
+            datosInventario.push([
+                it.fechaActualizacion || 'N/A',
+                it.codigo,
+                it.nombre,
+                it.lote || 'N/A',
+                parseFloat(it.costoUnitario || 0).toFixed(2),
+                parseFloat(it.precioVenta || 0).toFixed(2),
+                it.stock
+            ]);
+        });
+        const wsInventario = XLSX.utils.aoa_to_sheet(datosInventario);
+        wsInventario['!cols'] = [
+            { wch: 14 }, { wch: 12 }, { wch: 28 }, { wch: 10 }, { wch: 18 }, { wch: 18 }, { wch: 8 }
+        ];
+        if (wsInventario['!ref']) wsInventario['!autofilter'] = { ref: wsInventario['!ref'] };
+        XLSX.utils.book_append_sheet(wb, wsInventario, 'Inventario');
+
+        // Hoja: Entradas (historial)
+        const datosEntradas = [
+            ['Fecha', 'Código', 'Nombre', 'Cantidad']
+        ];
+        entradasSnapshot.forEach(doc => {
+            const it = doc.data();
+            datosEntradas.push([it.fecha, it.codigo, it.nombre, it.cantidad]);
+        });
+        const wsEntradas = XLSX.utils.aoa_to_sheet(datosEntradas);
+        wsEntradas['!cols'] = [{ wch: 14 }, { wch: 12 }, { wch: 28 }, { wch: 10 }];
+        if (wsEntradas['!ref']) wsEntradas['!autofilter'] = { ref: wsEntradas['!ref'] };
+        XLSX.utils.book_append_sheet(wb, wsEntradas, 'Entradas');
+
+        // Hoja: Salidas (historial)
+        const datosSalidas = [
+            ['Fecha', 'Repuesto', 'Cantidad', 'Cliente', 'N° OT', 'Placa', 'KM']
+        ];
+        salidasSnapshot.forEach(doc => {
+            const it = doc.data();
+            datosSalidas.push([it.fecha, it.repuesto, it.cantidad, it.cliente, it.numeroOT, it.placa || 'N/A', it.kilometraje || 'N/A']);
+        });
+        const wsSalidas = XLSX.utils.aoa_to_sheet(datosSalidas);
+        wsSalidas['!cols'] = [{ wch: 14 }, { wch: 28 }, { wch: 10 }, { wch: 22 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
+        if (wsSalidas['!ref']) wsSalidas['!autofilter'] = { ref: wsSalidas['!ref'] };
+        XLSX.utils.book_append_sheet(wb, wsSalidas, 'Salidas');
+
+        // Hoja: Solicitudes (historial)
+        const datosSolicitudes = [
+            ['Fecha', 'Mecánico', 'Repuesto', 'Cantidad', 'Estado', 'Código']
+        ];
+        solicitudesSnapshot.forEach(doc => {
+            const it = doc.data();
+            datosSolicitudes.push([it.fecha, it.mecanico, it.repuesto, it.cantidad, it.estado, it.codigo || 'N/A']);
+        });
+        const wsSolicitudes = XLSX.utils.aoa_to_sheet(datosSolicitudes);
+        wsSolicitudes['!cols'] = [{ wch: 14 }, { wch: 18 }, { wch: 28 }, { wch: 10 }, { wch: 14 }, { wch: 12 }];
+        if (wsSolicitudes['!ref']) wsSolicitudes['!autofilter'] = { ref: wsSolicitudes['!ref'] };
+        XLSX.utils.book_append_sheet(wb, wsSolicitudes, 'Solicitudes');
+
+        const fecha = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `Reporte_Inventario_${fecha}.xlsx`);
+        alert('✅ EXCEL GENERADO EXITOSAMENTE!\n\nCONTENIDO:\n• INVENTARIO (Stock actual)\n• ENTRADAS (Historial)\n• SALIDAS (Historial)\n• SOLICITUDES (Historial)\n\n⚙ Los encabezados tienen auto-filtro.');
+    } catch (error) {
+        console.error('Error al generar Excel:', error);
+        alert('❌ Error al generar el Excel.');
+    }
 }
 
 // ====== FUNCIÓN CORREGIDA PARA GENERAR REPORTES ======

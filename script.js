@@ -1711,6 +1711,374 @@ function calcularFechaLimite(periodo) {
     return fecha;
 }
 
+// ====== FUNCIONES DE IA - PREDICCIÓN INTELIGENTE DE STOCK ======
+async function calcularIAStockMejorado() {
+    if (!db) {
+        alert('El sistema no está listo. Por favor espere y reintente.');
+        return;
+    }
+
+    const diasAnalisis = parseInt(document.getElementById('ia-dias-analisis').value) || 60;
+    const diasCobertura = parseInt(document.getElementById('ia-dias-cobertura').value) || 45;
+    const leadtime = parseInt(document.getElementById('ia-leadtime').value) || 7;
+    const seguridadPct = parseFloat(document.getElementById('ia-seguridad').value) || 25;
+    const stockMinimo = parseInt(document.getElementById('ia-stock-minimo').value) || 3;
+
+    const tbody = document.querySelector('#tabla-ia-resultados tbody');
+    const metricasContainer = document.getElementById('metricas-ia');
+    const alertasContainer = document.getElementById('alertas-ia');
+
+    tbody.innerHTML = '<tr><td colspan="8">Generando predicciones, por favor espere...</td></tr>';
+    metricasContainer.innerHTML = '';
+    alertasContainer.innerHTML = '';
+
+    try {
+        // Fecha límite para el análisis
+        const fechaLimite = new Date();
+        fechaLimite.setDate(fechaLimite.getDate() - diasAnalisis);
+        const fechaLimiteStr = fechaLimite.toISOString().slice(0,10);
+
+        // Obtener inventario y salidas en paralelo
+        const [inventarioSnap, salidasSnap] = await Promise.all([
+            db.collection('inventario').get(),
+            db.collection('repuestosSalida').where('fecha', '>=', fechaLimiteStr).get()
+        ]);
+
+        // Mapear demanda total por producto (por nombre)
+        const demandaMap = {}; // nombre -> { total: n, porDia: m, porDias: {fecha: cantidad} }
+
+        salidasSnap.forEach(doc => {
+            const data = doc.data();
+            const nombre = (data.repuesto || '').toString().trim().toUpperCase();
+            const cantidad = parseInt(data.cantidad) || 0;
+            const fecha = data.fecha;
+
+            if (!demandaMap[nombre]) demandaMap[nombre] = { total: 0, porDias: {} };
+            demandaMap[nombre].total += cantidad;
+            demandaMap[nombre].porDias[fecha] = (demandaMap[nombre].porDias[fecha] || 0) + cantidad;
+        });
+
+        // Preparar filas
+        const filas = [];
+        let totalCostEstimado = 0;
+        let productosCriticos = 0;
+
+        // Para tendencia simple: comparar últimos 14 días vs anteriores 14 días
+        const ventana = Math.min(14, Math.floor(diasAnalisis/2) || 7);
+        const fechaVentanaReciente = new Date();
+        fechaVentanaReciente.setDate(fechaVentanaReciente.getDate() - ventana + 1);
+        const fechaVentanaAnterior = new Date();
+        fechaVentanaAnterior.setDate(fechaVentanaAnterior.getDate() - (ventana*2) + 1);
+        const fechaVentanaRecienteStr = fechaVentanaReciente.toISOString().slice(0,10);
+        const fechaVentanaAnteriorStr = fechaVentanaAnterior.toISOString().slice(0,10);
+
+        inventarioSnap.forEach(doc => {
+            const item = doc.data();
+            const nombre = (item.nombre || '').toString().trim().toUpperCase();
+            const codigo = item.codigo || '';
+            const stockActual = parseInt(item.stock) || 0;
+            const costoUnitario = parseFloat(item.costoUnitario) || 0;
+
+            const demandaInfo = demandaMap[nombre] || { total: 0, porDias: {} };
+            const demandaTotal = demandaInfo.total;
+            const demandaDia = demandaTotal / Math.max(diasAnalisis, 1);
+
+            // Calcular tendencia simple (comparar sumas de ventanas)
+            let sumaReciente = 0, sumaAnterior = 0;
+            Object.keys(demandaInfo.porDias).forEach(f => {
+                if (f >= fechaVentanaRecienteStr) sumaReciente += demandaInfo.porDias[f];
+                else if (f >= fechaVentanaAnteriorStr && f < fechaVentanaRecienteStr) sumaAnterior += demandaInfo.porDias[f];
+            });
+
+            let tendencia = 'Estable';
+            if (sumaAnterior === 0 && sumaReciente > 0) tendencia = 'Aumento';
+            else if (sumaAnterior > 0) {
+                const cambio = (sumaReciente - sumaAnterior) / sumaAnterior;
+                if (cambio > 0.20) tendencia = 'Aumento';
+                else if (cambio < -0.20) tendencia = 'Disminución';
+            }
+
+            const coberturaDias = demandaDia > 0 ? (stockActual / demandaDia) : Infinity;
+            const seguridadFrac = seguridadPct / 100;
+            const puntoPedido = Math.ceil(demandaDia * leadtime * (1 + seguridadFrac));
+
+            // Cantidad recomendada: asegurar cobertura objetivo teniendo en cuenta leadtime y seguridad
+            let cantidadRecomendada = Math.ceil((diasCobertura * demandaDia) - stockActual + (demandaDia * leadtime * seguridadFrac));
+            if (isNaN(cantidadRecomendada) || cantidadRecomendada < 0) cantidadRecomendada = 0;
+
+            const criticidad = stockActual <= stockMinimo ? 'Crítico' : (coberturaDias < leadtime ? 'Alerta' : 'Normal');
+            if (criticidad === 'Crítico') productosCriticos++;
+
+            const costoEstimado = cantidadRecomendada * costoUnitario;
+            totalCostEstimado += costoEstimado;
+
+            // Generar recomendación resumida
+            let recomendacion = 'Sin acción';
+            if (cantidadRecomendada > 0) {
+                if (criticidad === 'Crítico') recomendacion = `Comprar urgente: ${cantidadRecomendada}`;
+                else if (criticidad === 'Alerta') recomendacion = `Comprar: ${cantidadRecomendada}`;
+                else recomendacion = `Considerar compra: ${cantidadRecomendada}`;
+            } else {
+                if (tendencia === 'Aumento') recomendacion = 'Monitorear (tendencia ↑)';
+                else recomendacion = 'Mantener';
+            }
+
+            filas.push({
+                codigo, nombre, stockActual, demandaDia: demandaDia.toFixed(2), cobertura: isFinite(coberturaDias) ? coberturaDias.toFixed(1) : '∞',
+                puntoPedido, tendencia, criticidad, cantidadRecomendada, costoEstimado: costoEstimado.toFixed(2), recomendacion
+            });
+        });
+
+        // Ordenar por criticidad y recomendación descendente
+        filas.sort((a,b) => {
+            const prioridad = { 'Crítico': 2, 'Alerta': 1, 'Normal': 0 };
+            if (prioridad[b.criticidad] !== prioridad[a.criticidad]) return prioridad[b.criticidad] - prioridad[a.criticidad];
+            return b.cantidadRecomendada - a.cantidadRecomendada;
+        });
+
+        // Renderizar tabla
+        if (filas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8">No hay datos suficientes para generar predicciones.</td></tr>';
+        } else {
+            tbody.innerHTML = '';
+            filas.forEach(f => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${f.nombre}</td>
+                    <td>${f.stockActual}</td>
+                    <td>${f.demandaDia}</td>
+                    <td>${f.cobertura}</td>
+                    <td>${f.puntoPedido}</td>
+                    <td>${f.tendencia}</td>
+                    <td>${f.criticidad}</td>
+                    <td>${f.recomendacion}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Métricas bonito
+        const fechaGeneracion = new Date().toLocaleString();
+        metricasContainer.innerHTML = `
+            <div class="ia-metrics">
+                <div class="ia-metric-card">
+                    <div class="ia-metric-icon"><i class="fas fa-boxes"></i></div>
+                    <div class="ia-metric-body">
+                        <div class="ia-metric-title">Productos Analizados</div>
+                        <div class="ia-metric-value">${filas.length}</div>
+                    </div>
+                </div>
+                <div class="ia-metric-card ia-metric-warning">
+                    <div class="ia-metric-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="ia-metric-body">
+                        <div class="ia-metric-title">Productos Críticos</div>
+                        <div class="ia-metric-value">${productosCriticos}</div>
+                    </div>
+                </div>
+                <div class="ia-metric-card">
+                    <div class="ia-metric-icon"><i class="fas fa-dollar-sign"></i></div>
+                    <div class="ia-metric-body">
+                        <div class="ia-metric-title">Costo Estimado Reposiciones</div>
+                        <div class="ia-metric-value">S/ ${totalCostEstimado.toFixed(2)}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="ia-metrics-footer">Generado: ${fechaGeneracion}</div>
+        `;
+
+        // Alertas principales (primeras 5 críticas) con estilo
+        const alertas = filas.filter(f => f.criticidad === 'Crítico');
+        if (alertas.length > 0) {
+            alertasContainer.innerHTML = `
+                <div class="ia-alerts">
+                    <div class="ia-alerts-header"><i class="fas fa-bullhorn"></i> Alertas críticas</div>
+                    <ul class="ia-alert-list">
+                        ${alertas.map(a => `
+                            <li class="ia-alert-item">
+                                <div class="ia-alert-left">
+                                    <div class="ia-alert-product">${a.nombre}</div>
+                                    <div class="ia-alert-sub">Stock: <strong>${a.stockActual}</strong></div>
+                                </div>
+                                <div class="ia-alert-right">
+                                    <span class="ia-badge">Recomendado: ${a.cantidadRecomendada}</span>
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `;
+        } else {
+            alertasContainer.innerHTML = `
+                <div class="ia-alerts ia-alerts-empty">
+                    <div class="ia-alerts-header"><i class="fas fa-check-circle"></i> Sin alertas críticas</div>
+                    <div class="ia-alerts-sub">No se detectaron productos en estado crítico durante el análisis.</div>
+                </div>
+            `;
+        }
+
+    } catch (error) {
+        console.error('Error en calcularIAStockMejorado:', error);
+        tbody.innerHTML = '<tr><td colspan="10">Error al generar predicciones. Revisa la consola.</td></tr>';
+        metricasContainer.innerHTML = '';
+        alertasContainer.innerHTML = '';
+    }
+}
+
+function inicializarIA() {
+    // Restaurar valores por defecto y limpiar vistas
+    document.getElementById('ia-dias-analisis').value = 60;
+    document.getElementById('ia-dias-cobertura').value = 45;
+    document.getElementById('ia-leadtime').value = 7;
+    document.getElementById('ia-seguridad').value = 25;
+    document.getElementById('ia-stock-minimo').value = 3;
+
+    document.querySelector('#tabla-ia-resultados tbody').innerHTML = '';
+    document.getElementById('metricas-ia').innerHTML = '';
+    document.getElementById('alertas-ia').innerHTML = '';
+}
+
+async function generarSolicitudIA(codigo, nombre, cantidad) {
+    if (!db) { alert('Base de datos no disponible.'); return; }
+    if (!codigo || !nombre || cantidad <= 0) { alert('Datos inválidos para generar solicitud.'); return; }
+
+    if (!confirm(`Generar solicitud de ${cantidad} unidades de ${nombre}?`)) return;
+
+    try {
+        await db.collection('solicitudesRepuestos').add({
+            fecha: new Date().toISOString().slice(0,10),
+            mecanico: 'Sistema-IA',
+            codigo: codigo,
+            repuesto: nombre,
+            cantidad: cantidad,
+            estado: 'Pendiente'
+        });
+        alert('Solicitud generada correctamente.');
+        verificarSolicitudesPendientes();
+    } catch (err) {
+        console.error('Error al generar solicitud IA:', err);
+        alert('No se pudo generar la solicitud. Ve la consola para detalles.');
+    }
+}
+
+async function exportarIAPDF() {
+    try {
+        const contenedor = document.getElementById('apartado-ia');
+        if (!contenedor) { 
+            alert('No se encontró la sección IA.'); 
+            return; 
+        }
+
+        // Verificar que haya datos generados
+        const tbody = document.querySelector('#tabla-ia-resultados tbody');
+        if (!tbody || tbody.children.length === 0) {
+            alert('Por favor ejecuta primero el Análisis IA antes de exportar.');
+            return;
+        }
+
+        // Guardar estado original
+        const displayOriginal = contenedor.style.display;
+        const positionOriginal = contenedor.style.position;
+        const zIndexOriginal = contenedor.style.zIndex;
+        const topOriginal = contenedor.style.top;
+        
+        // Hacer visible y traer al frente sin modificar layout
+        contenedor.style.display = 'block';
+        contenedor.style.position = 'relative';
+        contenedor.style.zIndex = '9999';
+        contenedor.style.top = '0';
+        
+        // Pequeña pausa para renderizado
+        await new Promise(r => setTimeout(r, 800));
+
+        // Agregar estilos temporales para que la tabla quepa mejor en el PDF
+        const tabla = document.querySelector('#tabla-ia-resultados');
+        const estiloOriginal = tabla.style.cssText;
+        tabla.style.width = '100%';
+        tabla.style.tableLayout = 'auto';
+        tabla.style.fontSize = '12px';
+        
+        // Ajustar específicamente la columna de Recomendación
+        const celdasRecomendacion = tabla.querySelectorAll('td:last-child, th:last-child');
+        celdasRecomendacion.forEach(celda => {
+            celda.style.width = '25%';
+            celda.style.whiteSpace = 'normal';
+            celda.style.wordWrap = 'break-word';
+        });
+
+        const fecha = new Date().toISOString().slice(0,10);
+        const opt = {
+            margin: 8,
+            filename: `IA_Prediccion_Stock_${fecha}.pdf`,
+            image: { type: 'jpeg', quality: 0.95 },
+            html2canvas: { 
+                scale: 1.8, 
+                useCORS: true, 
+                backgroundColor: '#ffffff',
+                logging: false,
+                allowTaint: true,
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: window.innerWidth,
+                windowHeight: window.innerHeight
+            },
+            jsPDF: { 
+                unit: 'mm', 
+                format: 'a4', 
+                orientation: 'landscape',
+                compress: true
+            },
+            pagebreak: { 
+                mode: ['css', 'legacy'],
+                avoid: ['tr', 'th', 'td']
+            }
+        };
+
+        console.log('Iniciando exportación PDF...');
+        console.log('Filas detectadas:', document.querySelectorAll('#tabla-ia-resultados tbody tr').length);
+        
+        // Exportar
+        await html2pdf()
+            .set(opt)
+            .from(contenedor)
+            .toPdf()
+            .get('pdf')
+            .then(pdf => {
+                const total = pdf.internal.getNumberOfPages();
+                if (total > 2) {
+                    for (let i = total; i > 2; i--) {
+                        pdf.deletePage(i);
+                    }
+                }
+            })
+            .save();
+        
+        // Restaurar estado original
+        contenedor.style.display = displayOriginal;
+        contenedor.style.position = positionOriginal;
+        contenedor.style.zIndex = zIndexOriginal;
+        contenedor.style.top = topOriginal;
+        tabla.style.cssText = estiloOriginal;
+        
+        console.log('PDF exportado exitosamente');
+
+    } catch (error) {
+        console.error('Error exportando IA a PDF:', error);
+        alert('Error al exportar PDF: ' + error.message);
+    }
+}
+
+// Función auxiliar para escapar HTML (evitar inyección al construir el PDF)
+function escapeHtml(text) {
+    if (!text && text !== 0) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/\'/g, '&#039;');
+}
+
+
 // ====== EXPORTAR REPORTES A PDF (incluye todos los gráficos) ======
 async function exportarReportePDF() {
     try {
@@ -1731,22 +2099,88 @@ async function exportarReportePDF() {
         // Pequeño retraso para que los gráficos terminen de renderizar
         await new Promise(r => setTimeout(r, 500));
 
+        // Ocultar temporalmente los filtros y aplicar escala para que todo quepa en 1 hoja
+        const filtros = contenedor.querySelector('.sub-section-container');
+        const filtrosDisplayOriginal = filtros ? filtros.style.display : '';
+        if (filtros) filtros.style.display = 'none';
+
+        const transformOriginal = contenedor.style.transform;
+        const transformOriginOriginal = contenedor.style.transformOrigin;
+        const widthOriginal = contenedor.style.width;
+        contenedor.style.transform = 'scale(0.86)';
+        contenedor.style.transformOrigin = 'top left';
+        contenedor.style.width = '100%';
+
+        // Centrar gráficos y forzar 2 por hoja (2 primeros en hoja 1, 2 siguientes en hoja 2)
+        const chartsGrid = contenedor.querySelector('.charts-grid');
+        const chartContainers = chartsGrid ? chartsGrid.querySelectorAll('.chart-container') : [];
+        const chartsGridDisplayOriginal = chartsGrid ? chartsGrid.style.display : '';
+        const chartsGridGapOriginal = chartsGrid ? chartsGrid.style.gap : '';
+        if (chartsGrid) {
+            chartsGrid.style.display = 'block';
+            chartsGrid.style.gap = '0px';
+        }
+        const chartOriginals = [];
+        chartContainers.forEach(c => {
+            chartOriginals.push({ el: c, style: c.style.cssText });
+            c.style.width = '80%';
+            c.style.margin = '10px auto';
+            c.style.pageBreakInside = 'avoid';
+            c.style.breakInside = 'avoid';
+            c.style.webkitColumnBreakInside = 'avoid';
+            c.style.overflow = 'hidden';
+        });
+
+        // Insertar salto de página después del segundo gráfico
+        let pageBreakEl = null;
+        if (chartContainers.length > 2) {
+            pageBreakEl = document.createElement('div');
+            pageBreakEl.className = 'html2pdf__page-break';
+            chartContainers[1].after(pageBreakEl);
+        }
+
         const fecha = new Date().toISOString().slice(0, 10);
         const opt = {
-            margin:       10, // mm
+            margin:       4, // mm
             filename:     `Reporte_Inventario_${fecha}.pdf`,
             image:        { type: 'jpeg', quality: 0.95 },
-            html2canvas:  { scale: 2, useCORS: true, logging: false },
+            html2canvas:  { scale: 1.6, useCORS: true, logging: false, backgroundColor: '#ffffff' },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak:    { mode: ['avoid-all'] }
+            pagebreak:    { mode: ['css', 'legacy', 'avoid-all'], avoid: ['.chart-container', '.chart-wrapper', 'canvas'] }
         };
 
-        await html2pdf().set(opt).from(contenedor).save();
+        await html2pdf()
+            .set(opt)
+            .from(contenedor)
+            .toPdf()
+            .get('pdf')
+            .then(pdf => {
+                const total = pdf.internal.getNumberOfPages();
+                if (total > 2) {
+                    for (let i = total; i > 2; i--) {
+                        pdf.deletePage(i);
+                    }
+                }
+            })
+            .save();
+
+        // Restaurar estilos temporales
+        if (filtros) filtros.style.display = filtrosDisplayOriginal;
+        contenedor.style.transform = transformOriginal;
+        contenedor.style.transformOrigin = transformOriginOriginal;
+        contenedor.style.width = widthOriginal;
+        if (chartsGrid) {
+            chartsGrid.style.display = chartsGridDisplayOriginal;
+            chartsGrid.style.gap = chartsGridGapOriginal;
+        }
+        chartOriginals.forEach(({ el, style }) => { el.style.cssText = style; });
+        if (pageBreakEl && pageBreakEl.parentNode) pageBreakEl.parentNode.removeChild(pageBreakEl);
 
         // Volver a la vista principal si estaba oculta
         if (estabaOculto) {
             mostrarApartado('');
         }
+
     } catch (error) {
         console.error('Error al exportar PDF:', error);
         alert('Ocurrió un error al exportar el PDF.');

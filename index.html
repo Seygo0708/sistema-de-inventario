@@ -640,11 +640,8 @@
     <p>Análisis avanzado con machine learning para optimizar tu inventario</p>
   </div>
 
-  <!-- MÉTRICAS EN TIEMPO REAL -->
-  <div id="metricas-ia" class="metricas-container"></div>
-
-  <!-- ALERTAS PRIORITARIAS -->
-  <div id="alertas-ia" class="alertas-principales"></div>
+    <!-- MÉTRICAS EN TIEMPO REAL (se muestran debajo de Configuración Avanzada) -->
+    <!-- (movidas más abajo para mantener la configuración visible primero) -->
 
   <div class="content-grid">
     <!-- PANEL DE CONFIGURACIÓN AVANZADO -->
@@ -688,10 +685,16 @@
         <i class="fas fa-file-pdf"></i> Exportar PDF
     </button>
 </div>
-      </div>
-    </div>
+            </div>
+        </div>
 
-                        <div class="sub-section-container full-width" style="margin-top:18px;">
+                                                <!-- MÉTRICAS Y ALERTAS IA (debajo de Configuración Avanzada) -->
+                                                <div class="sub-section-container full-width ia-metrics-area" style="margin-top:12px; padding:14px;">
+                                                        <div id="metricas-ia" class="metricas-container"></div>
+                                                        <div id="alertas-ia" class="alertas-principales" style="margin-top:10px;"></div>
+                                                </div>
+
+                                                <div class="sub-section-container full-width" style="margin-top:18px;">
                             <h4><i class="fas fa-chart-bar"></i> Recomendaciones de Compra Inteligentes</h4>
                             <div class="table-responsive">
                                 <table id="tabla-ia-resultados">
@@ -704,9 +707,7 @@
                                             <th>Punto Pedido</th>
                                             <th>Tendencia</th>
                                             <th>Criticidad</th>
-                                            <th>Cant. Recomendada</th>
-                                            <th>Acción</th>
-                                            <th>Costo Estimado</th>
+                                            <th>Recomendación</th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>

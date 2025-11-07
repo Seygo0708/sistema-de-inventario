@@ -997,6 +997,29 @@ tr:hover {
     .contact-buttons {
         flex-direction: column;
     }
+
+    /* Ajustes generales para mejorar adaptación de secciones en pantallas pequeñas */
+    .sub-section-container {
+        padding: 16px;
+    }
+
+    /* Permitir que las tablas se puedan scrollear y eliminar anchos fijos que rompen el layout */
+    table {
+        table-layout: auto;
+        word-break: break-word;
+    }
+
+    /* Quitar restricciones de ancho en celdas de acción usadas en escritorio */
+    #tabla-entradas-historial td:last-child,
+    #tabla-salida td:last-child,
+    #tabla-inventario td:last-child,
+    #tabla-solicitudes td:last-child,
+    #tabla-ia-resultados td:last-child {
+        width: auto;
+        min-width: 0;
+        max-width: none;
+        white-space: normal;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1050,6 +1073,45 @@ tr:hover {
     .stat-icon {
         margin-right: 0;
         margin-bottom: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Tablas: reducir padding y fuente para caber mejor */
+    th, td {
+        padding: 8px 10px;
+        font-size: 13px;
+        white-space: normal;
+    }
+
+    /* Asegurar que los contenedores no se desborden horizontalmente */
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    /* Evitar celdas con ancho fijo que hagan horizontal scroll innecesario */
+    #tabla-entradas-historial td:last-child,
+    #tabla-salida td:last-child,
+    #tabla-inventario td:last-child,
+    #tabla-solicitudes td:last-child,
+    #tabla-ia-resultados td:last-child {
+        width: auto;
+        min-width: 0;
+        max-width: none;
+    }
+
+    /* Ajustes de padding para sub-secciones */
+    .sub-section-container {
+        padding: 12px;
+    }
+
+    /* Reducir iconos y espaciado para el sidebar en móvil */
+    .sidebar {
+        display: none; /* esconder sidebar en móviles para dar más espacio al contenido principal */
+    }
+
+    .main-content {
+        padding: 12px;
     }
 }
 
@@ -1503,3 +1565,124 @@ tbody tr {
 /* Alinear la columna de acción al centro y limitar ancho */
 #tabla-ia-resultados td .action-buttons-table { justify-content: center; }
 #tabla-ia-resultados td:last-child { width: 120px; text-align: center; }
+
+/* ====== ESTILOS PARA LOS BOTONES EN LA SECCIÓN IA (tres botones iguales) ====== */
+.action-buttons-ia {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    width: 100%; /* asegurar que usa todo el ancho del apartado */
+    box-sizing: border-box;
+}
+
+.action-buttons-ia .btn {
+    flex: 1 1 0%;
+    min-width: 0; /* permitir que se ajusten al contenedor */
+    padding: 12px 14px;
+    font-size: 14px;
+    height: 44px;
+    border-radius: 8px;
+    white-space: nowrap;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .action-buttons-ia {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .action-buttons-ia .btn {
+        flex: 1 1 48%; /* dos por fila en pantallas medianas */
+        min-width: 140px;
+    }
+}
+
+@media (max-width: 480px) {
+    .action-buttons-ia .btn {
+        flex: 1 1 100%; /* uno por fila en móviles pequeños */
+        min-width: 100%;
+        padding: 10px;
+        font-size: 13px;
+    }
+}
+
+/* ====== ESTILOS PARA MÉTRICAS Y ALERTAS EN IA ====== */
+/* Layout: 3 columnas iguales sobre escritorio, 2 columnas en tablet, 1 columna en móvil */
+#apartado-ia .ia-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 8px;
+    width: 100%;
+    align-items: stretch;
+}
+
+#apartado-ia .ia-metric-card {
+    background: #fff;
+    border: 1px solid #e6e9ee;
+    padding: 12px 14px;
+    border-radius: 8px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    min-height: 80px;
+    height: 100%;
+    box-shadow: 0 1px 2px rgba(20,30,40,0.04);
+    justify-content: flex-start;
+}
+
+#apartado-ia .ia-metric-icon {
+    font-size: 20px;
+    color: #1976d2;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eaf3ff;
+    border-radius: 8px;
+}
+
+#apartado-ia .ia-metric-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    justify-content: center;
+}
+
+#apartado-ia .ia-metric-title {
+    font-size: 12px;
+    color: #475569;
+}
+
+#apartado-ia .ia-metric-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+#apartado-ia .ia-metric-warning .ia-metric-icon { background: #fff4e6; color: #b45309 }
+#apartado-ia .ia-metrics-footer { grid-column: 1 / -1; font-size: 12px; color: #6b7280; margin-top: 8px }
+
+/* alertas */
+#apartado-ia .ia-alerts { margin-top: 6px }
+#apartado-ia .ia-alerts-header { font-weight:700; margin-bottom:6px; color:#0f172a }
+#apartado-ia .ia-alert-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px }
+#apartado-ia .ia-alert-item { display:flex; justify-content:space-between; align-items:center; padding:8px; background:#fff; border-radius:8px; border:1px solid #eef2ff }
+#apartado-ia .ia-alert-product { font-weight:600 }
+#apartado-ia .ia-alert-sub { font-size:12px; color:#6b7280 }
+#apartado-ia .ia-badge { background:#eef2ff; color:#1e88e5; padding:6px 8px; border-radius:999px; font-weight:600 }
+#apartado-ia .ia-alerts-empty { padding:10px; background:#f6fffa; border:1px solid #d1fae5; border-radius:8px }
+
+@media (max-width: 992px) {
+    #apartado-ia .ia-metrics { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+    #apartado-ia .ia-metrics { grid-template-columns: 1fr; }
+}
+
+/* Pequeña separación para el bloque de métricas/alertas de IA cuando está debajo de la configuración */
+#apartado-ia .ia-metrics-area { margin-top: 12px; }

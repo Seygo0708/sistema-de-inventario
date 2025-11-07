@@ -1451,3 +1451,55 @@ tbody tr {
         font-size: 13px;
     }
 }
+
+/* ====== ESTILOS ESPECÍFICOS PARA LA SECCIÓN IA ====== */
+#apartado-ia .sub-section-container {
+    padding: 22px;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(21,85,232,0.06);
+    border: 1px solid rgba(21,85,232,0.06);
+}
+
+#apartado-ia .sub-section-container h4 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    color: var(--primary);
+    margin-bottom: 12px;
+}
+
+#apartado-ia .form-group label i {
+    margin-right: 8px;
+}
+
+/* Botones grandes y con separación como en diseño */
+#apartado-ia .btn-primary {
+    border-radius: 12px;
+    padding: 14px 18px;
+    box-shadow: 0 6px 18px rgba(21,85,232,0.12);
+}
+
+#apartado-ia .btn-danger {
+    border-radius: 12px;
+    padding: 14px 16px;
+}
+
+/* Tabla IA: hacerla más ligera y legible */
+#tabla-ia-resultados th, #tabla-ia-resultados td {
+    padding: 12px 14px;
+    font-size: 14px;
+}
+
+#tabla-ia-resultados thead th {
+    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+    color: white;
+}
+
+#tabla-ia-resultados tbody tr:hover {
+    background: rgba(21,85,232,0.04);
+}
+
+/* Alinear la columna de acción al centro y limitar ancho */
+#tabla-ia-resultados td .action-buttons-table { justify-content: center; }
+#tabla-ia-resultados td:last-child { width: 120px; text-align: center; }

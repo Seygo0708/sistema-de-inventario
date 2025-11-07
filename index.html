@@ -127,6 +127,11 @@
                                 </a>
                             </li>
                             <li>
+      <a href="#" onclick="mostrarApartado('ia')" class="nav-link">
+        <i class="fas fa-robot"></i><span>IA Inteligente</span>
+      </a>
+    </li>
+                            <li>
                                 <a href="#" onclick="exportarExcel()" class="nav-link">
                                     <i class="fas fa-file-excel"></i>
                                     <span>Exportar Excel</span>
@@ -627,6 +632,88 @@
         </div>
     </div>
 </div>
+
+                    <!-- SECCIÓN IA (Predicción Inteligente) -->
+                    <div id="apartado-ia" class="admin-section" style="display: none;">
+  <div class="section-header">
+    <h2><i class="fas fa-robot"></i> IA - Predicción Inteligente de Stock</h2>
+    <p>Análisis avanzado con machine learning para optimizar tu inventario</p>
+  </div>
+
+  <!-- MÉTRICAS EN TIEMPO REAL -->
+  <div id="metricas-ia" class="metricas-container"></div>
+
+  <!-- ALERTAS PRIORITARIAS -->
+  <div id="alertas-ia" class="alertas-principales"></div>
+
+  <div class="content-grid">
+    <!-- PANEL DE CONFIGURACIÓN AVANZADO -->
+    <div class="sub-section-container">
+      <h4><i class="fas fa-sliders-h"></i> Configuración Avanzada</h4>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="ia-dias-analisis">📊 Días a Analizar</label>
+          <input id="ia-dias-analisis" class="form-control" type="number" value="60" min="7" max="365">
+          <small>Período histórico para análisis</small>
+        </div>
+        <div class="form-group">
+          <label for="ia-dias-cobertura">🎯 Días de Cobertura Objetivo</label>
+          <input id="ia-dias-cobertura" class="form-control" type="number" value="45" min="7" max="180">
+          <small>Stock deseado en días</small>
+        </div>
+        <div class="form-group">
+          <label for="ia-leadtime">⏱️ Tiempo de Reposición (días)</label>
+          <input id="ia-leadtime" class="form-control" type="number" value="7" min="1" max="60">
+          <small>Lead time proveedor</small>
+        </div>
+        <div class="form-group">
+          <label for="ia-seguridad">🛡️ Margen de Seguridad (%)</label>
+          <input id="ia-seguridad" class="form-control" type="number" value="25" min="0" max="100">
+          <small>Protección contra variabilidad</small>
+        </div>
+        <div class="form-group">
+          <label for="ia-stock-minimo">⚠️ Stock Mínimo Absoluto</label>
+          <input id="ia-stock-minimo" class="form-control" type="number" value="3" min="0" max="50">
+          <small>Límite de stock crítico</small>
+        </div>
+      </div>
+      <div class="action-buttons-ia">
+        <button class="btn btn-primary" onclick="calcularIAStockMejorado()">
+          <i class="fas fa-brain"></i> Ejecutar Análisis IA
+        </button>
+        <button class="btn btn-secondary" onclick="inicializarIA()">
+          <i class="fas fa-redo"></i> Valores por Defecto
+        </button>
+         <button class="btn btn-danger" onclick="exportarIAPDF()">
+        <i class="fas fa-file-pdf"></i> Exportar PDF
+    </button>
+</div>
+      </div>
+    </div>
+
+                        <div class="sub-section-container full-width" style="margin-top:18px;">
+                            <h4><i class="fas fa-chart-bar"></i> Recomendaciones de Compra Inteligentes</h4>
+                            <div class="table-responsive">
+                                <table id="tabla-ia-resultados">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Stock Actual</th>
+                                            <th>Demanda/Día</th>
+                                            <th>Cobertura</th>
+                                            <th>Punto Pedido</th>
+                                            <th>Tendencia</th>
+                                            <th>Criticidad</th>
+                                            <th>Cant. Recomendada</th>
+                                            <th>Acción</th>
+                                            <th>Costo Estimado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
 
                 </div>
             </div>

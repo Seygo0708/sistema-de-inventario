@@ -768,6 +768,21 @@ tr:hover {
     color: white;
 }
 
+/* Overrides específicos para filtros de solicitudes */
+#btn-aceptadas {
+  background-color: #22c55e !important; /* verde */
+  color: #ffffff !important;
+}
+#btn-aceptadas.active { background-color: #16a34a !important; color: #ffffff !important; }
+#btn-aceptadas:hover { filter: brightness(0.95); }
+
+#btn-rechazadas {
+  background-color: #ef4444 !important; /* rojo */
+  color: #ffffff !important;
+}
+#btn-rechazadas.active { background-color: #dc2626 !important; color: #ffffff !important; }
+#btn-rechazadas:hover { filter: brightness(0.95); }
+
 .btn-warning {
     background-color: var(--warning);
     color: white;
@@ -776,6 +791,30 @@ tr:hover {
 .btn-info {
     background-color: var(--info);
     color: white;
+}
+
+/* ====== AUTOCOMPLETE (Entradas) ====== */
+.form-group { position: relative; }
+.autocomplete-container {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  z-index: 1000;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.autocomplete-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.autocomplete-item:hover {
+  background: #f3f4f6;
 }
 
 /* Estados de solicitudes */
@@ -1229,7 +1268,21 @@ tr:hover {
 .btn:disabled:hover {
     transform: none !important;
     box-shadow: none !important;
+    text-align: center !important;
+    vertical-align: middle !important;
 }
+
+/* Hacer la celda de Acciones un contenedor flex para centrar perfecto */
+/* Mantener la celda como table-cell para que la línea divisoria sea recta */
+#tabla-entradas-historial td:last-child,
+#tabla-salida td:last-child,
+#tabla-inventario td:last-child,
+#tabla-solicitudes td:has(.action-buttons-table) {
+    vertical-align: middle !important;
+    padding-top: 14px !important;
+    padding-bottom: 14px !important;
+}
+.action-buttons-table { height: auto; align-items: center; justify-content: center; }
 
 /* ====== ESTILOS PARA SCROLLBAR PERSONALIZADO ====== */
 ::-webkit-scrollbar {
@@ -1686,3 +1739,11 @@ tbody tr {
 
 /* Pequeña separación para el bloque de métricas/alertas de IA cuando está debajo de la configuración */
 #apartado-ia .ia-metrics-area { margin-top: 12px; }
+
+/* ====== OVERRIDE: quitar línea inferior en la columna Acciones ====== */
+#tabla-entradas-historial td:last-child,
+#tabla-salida td:last-child,
+#tabla-inventario td:last-child,
+#tabla-solicitudes td:last-child {
+  border-bottom: none !important;
+}

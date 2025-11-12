@@ -229,15 +229,15 @@
                                             <input type="date" id="entrada-fecha" class="form-control" required>
                                         </div>
                                         <div class="form-group">
-                                            <label for="entrada-codigo">Código del Producto</label>
-                                            <input type="text" id="entrada-codigo" class="form-control" 
-                                                   placeholder="Ingrese código" required 
-                                                   oninput="autocompletarNombreEntrada()">
-                                        </div>
-                                        <div class="form-group">
                                             <label for="entrada-nombre">Nombre del Producto</label>
                                             <input type="text" id="entrada-nombre" class="form-control" 
-                                                   placeholder="Se autocompletará" readonly>
+                                                   placeholder="Ingrese nombre para autocompletar código">
+                                            <div id="entrada-nombre-sugerencias" class="autocomplete-container" style="display:none;"></div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="entrada-codigo">Código del Producto</label>
+                                            <input type="text" id="entrada-codigo" class="form-control" 
+                                                   placeholder="Se autocompletará" required readonly>
                                         </div>
                                         <div class="form-group">
                                             <label for="entrada-cantidad">Cantidad</label>
@@ -282,21 +282,20 @@
                         </div>
 
                         <div class="content-grid">
-                            <!-- FORMULARIO SALIDA -->
                             <div class="sub-section-container">
                                 <h4><i class="fas fa-minus-circle"></i> Nueva Salida</h4>
                                 <form id="form-salida">
                                     <div class="form-grid">
                                         <div class="form-group">
-                                            <label for="salida-codigo">Código del Producto</label>
-                                            <input type="text" id="salida-codigo" class="form-control" 
-                                                   placeholder="Ingrese código" required 
-                                                   oninput="autocompletarNombreSalida()">
-                                        </div>
-                                        <div class="form-group">
                                             <label for="salida-nombre">Nombre del Producto</label>
                                             <input type="text" id="salida-nombre" class="form-control" 
-                                                   placeholder="Se autocompletará" readonly>
+                                                   placeholder="Ingrese nombre para autocompletar código">
+                                            <div id="salida-nombre-sugerencias" class="autocomplete-container" style="display:none;"></div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="salida-codigo">Código del Producto</label>
+                                            <input type="text" id="salida-codigo" class="form-control" 
+                                                   placeholder="Se autocompletará" required readonly>
                                         </div>
                                         <div class="form-group">
                                             <label for="salida-cantidad">Cantidad</label>
@@ -742,15 +741,15 @@
     <form id="form-solicitar-repuesto">
         <div class="form-grid">
             <div class="form-group">
-                <label for="solicitar-codigo">Código del Producto</label>
-                <input type="text" id="solicitar-codigo" class="form-control" 
-                       placeholder="Ingrese código del producto" required 
-                       oninput="autocompletarNombreSolicitud()">
-            </div>
-            <div class="form-group">
                 <label for="solicitar-nombre">Nombre del Repuesto</label>
                 <input type="text" id="solicitar-nombre" class="form-control" 
-                       placeholder="Se autocompletará" readonly>
+                       placeholder="Ingrese nombre para autocompletar código">
+                <div id="solicitar-nombre-sugerencias" class="autocomplete-container" style="display:none;"></div>
+            </div>
+            <div class="form-group">
+                <label for="solicitar-codigo">Código del Producto</label>
+                <input type="text" id="solicitar-codigo" class="form-control" 
+                       placeholder="Se autocompletará" required readonly>
             </div>
             <div class="form-group">
                 <label for="solicitar-cantidad">Cantidad</label>
@@ -802,6 +801,8 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

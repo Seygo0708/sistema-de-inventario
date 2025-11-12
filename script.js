@@ -231,63 +231,222 @@ function autocompletarNombreAgregarProducto() {
     autocompletarNombreGenerico('nuevo-codigo', 'nuevo-nombre');
 }
 
-// --- FUNCIONES CRUD ---
-async function agregarNuevoProducto(event) {
-    event.preventDefault();
+// === Inverso: nombre → código ===
+function autocompletarCodigoEntrada() {
+    autocompletarCodigoGenerico('entrada-nombre', 'entrada-codigo');
+}
+function autocompletarCodigoSalida() {
+    autocompletarCodigoGenerico('salida-nombre', 'salida-codigo');
+}
+function autocompletarCodigoSolicitud() {
+    autocompletarCodigoGenerico('solicitar-nombre', 'solicitar-codigo');
+}
 
-    const codigo = document.getElementById('nuevo-codigo').value.trim().toUpperCase();
-    const nombre = document.getElementById('nuevo-nombre').value.trim().toUpperCase();
-    const costoUnitario = parseFloat(document.getElementById('nuevo-costo-unitario').value);
-    const precioVenta = parseFloat(document.getElementById('nuevo-precio-venta').value);
-    const stock = parseInt(document.getElementById('nuevo-stock').value);
-    const lote = document.getElementById('nuevo-lote').value.trim();
-    const fechaActualizacion = document.getElementById('nuevo-producto-fecha').value;
+// --- AUTOCOMPLETADO INVERSO (NOMBRE → CÓDIGO) ---
+async function autocompletarCodigoGenerico(nombreInputId, codigoInputId) {
+    const nombreInput = document.getElementById(nombreInputId);
+    const codigoInput = document.getElementById(codigoInputId);
+    const nombreBusqueda = nombreInput.value.trim().toUpperCase();
 
-    if (!codigo || !nombre || isNaN(stock) || stock < 0 || isNaN(costoUnitario) || isNaN(precioVenta) || !fechaActualizacion) {
-        alert('Por favor complete todos los campos obligatorios correctamente.');
+    if (nombreBusqueda === '') {
+        codigoInput.value = '';
         return;
     }
 
     if (!db) {
-        console.error("Firestore no está inicializado (agregarNuevoProducto)");
-        alert("El sistema no está listo. Intente nuevamente.");
+        console.error("Firestore no está inicializado (autocompletarCodigoGenerico)");
         return;
     }
-    
+
     try {
-        const existeCodigoQuery = await db.collection('inventario').where('codigo', '==', codigo).get();
-        if (!existeCodigoQuery.empty) {
-            alert('Ya existe un producto con este código.');
-            return;
+        const querySnapshot = await db.collection('inventario').where('nombre', '==', nombreBusqueda).limit(1).get();
+        if (!querySnapshot.empty) {
+            const productoEncontrado = querySnapshot.docs[0].data();
+            codigoInput.value = productoEncontrado.codigo;
+        } else {
+            codigoInput.value = '';
         }
-        
-        const existeNombreQuery = await db.collection('inventario').where('nombre', '==', nombre).get();
-        if (!existeNombreQuery.empty) {
-            alert('Ya existe un producto con este nombre.');
-            return;
-        }
-
-        await db.collection('inventario').add({
-            codigo: codigo,
-            nombre: nombre,
-            lote: lote,
-            costoUnitario: costoUnitario.toFixed(2),
-            precioVenta: precioVenta.toFixed(2),
-            stock: stock,
-            fechaActualizacion: fechaActualizacion
-        });
-
-        alert(`Producto "${nombre}" agregado exitosamente a la base de datos.`);
-        document.getElementById('form-agregar-producto').reset();
-        document.getElementById('nuevo-producto-fecha').valueAsDate = new Date();
-        cargarInventarioCompleto();
-        verificarStockBajo();
-        actualizarEstadisticas();
     } catch (error) {
-        console.error("Error al agregar producto: ", error);
-        alert("Hubo un error al guardar el producto.");
+        console.error("Error al autocompletar código:", error);
+        codigoInput.value = '';
     }
 }
+
+let debounceEntradaTimer = null;
+
+async function sugerirNombresEntrada() {
+    const input = document.getElementById('entrada-nombre');
+    const cont = document.getElementById('entrada-nombre-sugerencias');
+    if (!input || !cont) return;
+    const term = input.value.trim().toUpperCase();
+    if (debounceEntradaTimer) clearTimeout(debounceEntradaTimer);
+    debounceEntradaTimer = setTimeout(async () => {
+        if (term === '') { cont.innerHTML = ''; cont.style.display = 'none'; return; }
+        if (!db) { console.error('Firestore no está inicializado (sugerirNombresEntrada)'); return; }
+        try {
+            const start = term;
+            const end = term + '\uf8ff';
+            const snap = await db.collection('inventario')
+                .orderBy('nombre')
+                .startAt(start)
+                .endAt(end)
+                .limit(8)
+                .get();
+            const resultados = [];
+            snap.forEach(doc => { const d = doc.data(); resultados.push({ nombre: d.nombre, codigo: d.codigo }); });
+            renderSugerenciasEntrada(resultados);
+        } catch (e) {
+            console.error('Error cargando sugerencias (entrada):', e);
+            cont.innerHTML = ''; cont.style.display = 'none';
+        }
+    }, 200);
+}
+
+function renderSugerenciasEntrada(items) {
+    const input = document.getElementById('entrada-nombre');
+    const codigo = document.getElementById('entrada-codigo');
+    const cont = document.getElementById('entrada-nombre-sugerencias');
+    if (!input || !codigo || !cont) return;
+    if (!items || items.length === 0) { cont.innerHTML = ''; cont.style.display = 'none'; return; }
+    cont.innerHTML = '';
+    items.forEach(({ nombre, codigo: cod }) => {
+        const el = document.createElement('div');
+        el.className = 'autocomplete-item';
+        el.textContent = `${nombre} (${cod})`;
+        el.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            input.value = nombre;
+            codigo.value = cod;
+            cont.style.display = 'none';
+        });
+        cont.appendChild(el);
+    });
+    const rect = input.getBoundingClientRect();
+    cont.style.minWidth = rect.width + 'px';
+    cont.style.display = 'block';
+}
+
+// === Sugerencias por nombre en Solicitud (Mecánico) ===
+let debounceSolicitudTimer = null;
+async function sugerirNombresSolicitud() {
+    const input = document.getElementById('solicitar-nombre');
+    const cont = document.getElementById('solicitar-nombre-sugerencias');
+    if (!input || !cont) return;
+    const term = input.value.trim().toUpperCase();
+    if (debounceSolicitudTimer) clearTimeout(debounceSolicitudTimer);
+    debounceSolicitudTimer = setTimeout(async () => {
+        if (term === '') { cont.innerHTML = ''; cont.style.display = 'none'; return; }
+        if (!db) { console.error('Firestore no está inicializado (sugerirNombresSolicitud)'); return; }
+        try {
+            const start = term;
+            const end = term + '\uf8ff';
+            const snap = await db.collection('inventario')
+                .orderBy('nombre')
+                .startAt(start)
+                .endAt(end)
+                .limit(8)
+                .get();
+            const resultados = [];
+            snap.forEach(doc => { const d = doc.data(); resultados.push({ nombre: d.nombre, codigo: d.codigo }); });
+            renderSugerenciasSolicitud(resultados);
+        } catch (e) {
+            console.error('Error cargando sugerencias (solicitud):', e);
+            cont.innerHTML = ''; cont.style.display = 'none';
+        }
+    }, 200);
+}
+
+function renderSugerenciasSolicitud(items) {
+    const cont = document.getElementById('solicitar-nombre-sugerencias');
+    if (!cont) return;
+    if (!items || items.length === 0) { cont.innerHTML = ''; cont.style.display = 'none'; return; }
+    cont.innerHTML = '';
+    items.forEach(it => {
+        const el = document.createElement('div');
+        el.className = 'autocomplete-item';
+        el.textContent = `${it.nombre} — ${it.codigo}`;
+        el.onmousedown = (e) => {
+            e.preventDefault();
+            const nombreEl = document.getElementById('solicitar-nombre');
+            const codigoEl = document.getElementById('solicitar-codigo');
+            if (nombreEl) nombreEl.value = it.nombre;
+            if (codigoEl) codigoEl.value = it.codigo;
+            cont.innerHTML = ''; cont.style.display = 'none';
+        };
+        el.addEventListener('click', () => {
+            const nombreEl = document.getElementById('solicitar-nombre');
+            const codigoEl = document.getElementById('solicitar-codigo');
+            if (nombreEl) nombreEl.value = it.nombre;
+            if (codigoEl) codigoEl.value = it.codigo;
+            cont.innerHTML = ''; cont.style.display = 'none';
+        });
+        cont.appendChild(el);
+    });
+    cont.style.display = 'block';
+}
+
+// === Sugerencias por nombre en Salidas ===
+let debounceSalidaTimer = null;
+
+async function sugerirNombresSalida() {
+    // ... rest of the code remains the same ...
+    const input = document.getElementById('salida-nombre');
+    const cont = document.getElementById('salida-nombre-sugerencias');
+    if (!input || !cont) return;
+    const term = input.value.trim().toUpperCase();
+    if (debounceSalidaTimer) clearTimeout(debounceSalidaTimer);
+    debounceSalidaTimer = setTimeout(async () => {
+        if (term === '') { cont.innerHTML = ''; cont.style.display = 'none'; return; }
+        if (!db) { console.error('Firestore no está inicializado (sugerirNombresSalida)'); return; }
+        try {
+            const start = term;
+            const end = term + '\uf8ff';
+            const snap = await db.collection('inventario')
+                .orderBy('nombre')
+                .startAt(start)
+                .endAt(end)
+                .limit(8)
+                .get();
+            const resultados = [];
+            snap.forEach(doc => { const d = doc.data(); resultados.push({ nombre: d.nombre, codigo: d.codigo }); });
+            renderSugerenciasSalida(resultados);
+        } catch (e) {
+            console.error('Error cargando sugerencias (salida):', e);
+            cont.innerHTML = ''; cont.style.display = 'none';
+        }
+    }, 200);
+}
+
+function renderSugerenciasSalida(items) {
+    const cont = document.getElementById('salida-nombre-sugerencias');
+    if (!cont) return;
+    if (!items || items.length === 0) { cont.innerHTML = ''; cont.style.display = 'none'; return; }
+    cont.innerHTML = '';
+    items.forEach(it => {
+        const el = document.createElement('div');
+        el.className = 'autocomplete-item';
+        el.textContent = `${it.nombre} — ${it.codigo}`;
+        el.onmousedown = (e) => {
+            e.preventDefault();
+            const nombreEl = document.getElementById('salida-nombre');
+            const codigoEl = document.getElementById('salida-codigo');
+            if (nombreEl) nombreEl.value = it.nombre;
+            if (codigoEl) codigoEl.value = it.codigo;
+            cont.innerHTML = ''; cont.style.display = 'none';
+        };
+        el.addEventListener('click', () => {
+            const nombreEl = document.getElementById('salida-nombre');
+            const codigoEl = document.getElementById('salida-codigo');
+            if (nombreEl) nombreEl.value = it.nombre;
+            if (codigoEl) codigoEl.value = it.codigo;
+            cont.innerHTML = ''; cont.style.display = 'none';
+        });
+        cont.appendChild(el);
+    });
+    cont.style.display = 'block';
+}
+
+// ... rest of the code remains the same ...
 
 async function agregarEntrada(event) {
     event.preventDefault();
@@ -441,12 +600,37 @@ async function solicitarRepuesto(event) {
 
         alert(`Su solicitud de ${cantidad} unidades de ${nombre} ha sido enviada al administrador.`);
         document.getElementById('form-solicitar-repuesto').reset();
+        const formSol = document.getElementById('form-solicitar-repuesto');
+        if (formSol) {
+            const note = document.createElement('div');
+            note.textContent = `Solicitud enviada: ${cantidad} de ${nombre}`;
+            note.style.background = '#e6ffed';
+            note.style.border = '1px solid #34c759';
+            note.style.color = '#0b5d1e';
+            note.style.padding = '10px 12px';
+            note.style.borderRadius = '6px';
+            note.style.marginTop = '10px';
+            note.style.fontWeight = '600';
+            formSol.appendChild(note);
+            setTimeout(() => { if (note && note.parentNode) note.parentNode.removeChild(note); }, 3000);
+        }
         
     } catch (error) {
         console.error("Error al registrar la solicitud:", error);
         alert("Hubo un error al enviar la solicitud.");
     }
 }
+
+// Fallback global: asegura que el formulario de Solicitar Repuesto dispare la acción
+document.addEventListener('submit', function(e) {
+    const target = e.target;
+    if (target && target.id === 'form-solicitar-repuesto') {
+        e.preventDefault();
+        solicitarRepuesto(e);
+        // Confirmación visible extra por si el alert se bloquea
+        // Nota: el alert principal ya se muestra dentro de solicitarRepuesto si todo va bien
+    }
+}, true);
 
 // Función para autocompletar nombre en solicitud de repuesto
 function autocompletarNombreSolicitud() {
@@ -3369,15 +3553,157 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert("Hubo un problema al cargar el sistema. Por favor, intente de nuevo o contacte al soporte.");
         return;
     }
-    
-    // Configurar event listeners
     document.querySelector('#login .btn-primary').addEventListener('click', login);
-    document.getElementById('entrada-codigo').addEventListener('input', autocompletarNombreEntrada);
-    document.getElementById('salida-codigo').addEventListener('input', autocompletarNombreSalida);
+    document.getElementById('entrada-nombre').addEventListener('input', autocompletarCodigoEntrada);
+    document.getElementById('entrada-nombre').addEventListener('input', sugerirNombresEntrada);
+    document.getElementById('entrada-nombre').addEventListener('blur', () => {
+        const cont = document.getElementById('entrada-nombre-sugerencias');
+        if (cont) setTimeout(() => { cont.style.display = 'none'; }, 150);
+    });
+    document.getElementById('salida-nombre').addEventListener('input', autocompletarCodigoSalida);
+    document.getElementById('salida-nombre').addEventListener('input', sugerirNombresSalida);
+    document.getElementById('salida-nombre').addEventListener('blur', () => {
+        const cont = document.getElementById('salida-nombre-sugerencias');
+        if (cont) setTimeout(() => { cont.style.display = 'none'; }, 150);
+    });
     document.getElementById('nuevo-codigo').addEventListener('input', autocompletarNombreAgregarProducto);
     document.getElementById('solicitar-codigo').addEventListener('input', autocompletarNombreSolicitud);
+    const solNombre = document.getElementById('solicitar-nombre');
+    if (solNombre) {
+        solNombre.addEventListener('input', autocompletarCodigoSolicitud);
+        solNombre.addEventListener('input', sugerirNombresSolicitud);
+        solNombre.addEventListener('blur', () => {
+            const cont = document.getElementById('solicitar-nombre-sugerencias');
+            if (cont) setTimeout(() => { cont.style.display = 'none'; }, 150);
+        });
+    }
+
     document.getElementById('form-entrada').addEventListener('submit', agregarEntrada);
     document.getElementById('form-salida').addEventListener('submit', agregarSalida);
     document.getElementById('form-agregar-producto').addEventListener('submit', agregarNuevoProducto);
     document.getElementById('form-solicitar-repuesto').addEventListener('submit', solicitarRepuesto);
+    const solBtn = document.querySelector('#form-solicitar-repuesto button[type="submit"]');
+    if (solBtn) {
+        solBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            solicitarRepuesto(e);
+        });
+    }
+
+    // Botón Exportar PDF (opcional)
+    const btnExportPDF = document.getElementById('btn-exportar-pdf');
+    if (btnExportPDF && window.html2canvas && window.jspdf) {
+        btnExportPDF.addEventListener('click', async () => {
+            const targetSelector = btnExportPDF.getAttribute('data-pdf-target') || '#reportes-section';
+            await exportarReportePDF(targetSelector, { size: 'a4', orientation: 'portrait', maxPages: 2, margin: 10 });
+        });
+    }
 });
+
+// ====== UTILIDAD: EXPORTAR PDF DE REPORTES ======
+async function exportarReportePDF(containerSelector = '#reportes-section', opts = {}) {
+    try {
+        const { jsPDF } = window.jspdf || {};
+        if (!jsPDF || !window.html2canvas) {
+            alert('No se encontraron librerías de exportación (jsPDF/html2canvas).');
+            return;
+        }
+
+        const el = document.querySelector(containerSelector) || document.querySelector('.sub-section-container.full-width') || document.querySelector('.sub-section-container') || document.querySelector('.main-content');
+        if (!el) {
+            alert('No se encontró el contenedor del reporte.');
+            return;
+        }
+        // Llevar el contenedor al tope de la vista para evitar espacios en blanco
+        el.scrollIntoView({ behavior: 'auto', block: 'start' });
+        await new Promise(r => setTimeout(r, 100));
+
+        const size = (opts.size || 'a4').toLowerCase();
+        const orientation = opts.orientation === 'landscape' ? 'landscape' : 'portrait';
+        const margin = Number.isFinite(opts.margin) ? opts.margin : 10; // pt
+        const maxPages = Number.isFinite(opts.maxPages) ? opts.maxPages : 2;
+
+        const prevBg = el.style.backgroundColor;
+        el.style.backgroundColor = '#ffffff';
+
+        // Reemplazar canvases (gráficos) por imágenes para evitar lienzos vacíos en PDF
+        const canvasNodes = Array.from(el.querySelectorAll('canvas'));
+        const swaps = [];
+        for (const c of canvasNodes) {
+            try {
+                // Forzar re-render
+                const dataUrl = c.toDataURL('image/png');
+                const img = document.createElement('img');
+                img.src = dataUrl;
+                img.style.maxWidth = '100%';
+                img.style.display = 'block';
+                c.parentNode.insertBefore(img, c);
+                c.style.display = 'none';
+                swaps.push({ canvas: c, img });
+            } catch (e) {
+                // Si falla (tainted), intentamos al menos mostrar el canvas como está
+                console.warn('No se pudo convertir canvas a imagen, se captura directo:', e);
+            }
+        }
+
+        const canvas = await html2canvas(el, {
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            allowTaint: true,
+            scrollY: 0,
+            scale: 2,
+            imageTimeout: 0,
+            removeContainer: true
+        });
+
+        el.style.backgroundColor = prevBg || '';
+
+        // Restaurar canvases
+        for (const swap of swaps) {
+            swap.canvas.style.display = '';
+            swap.img.parentNode.removeChild(swap.img);
+        }
+
+        const pdf = new jsPDF({ orientation, unit: 'pt', format: size });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const availableWidth = pageWidth - margin * 2;
+        const availableHeight = pageHeight - margin * 2;
+
+        const srcWidth = canvas.width;
+        const srcHeight = canvas.height;
+        const scale = availableWidth / srcWidth; // escalar a ancho de página
+        const totalPdfHeight = srcHeight * scale;
+
+        // Slicing: convertir la imagen en varias páginas usando trozos de canvas
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = srcWidth;
+        // Altura en px que cabe por página a la escala elegida
+        const pxPerPage = Math.floor(availableHeight / scale);
+        const totalPages = Math.max(1, Math.ceil(srcHeight / pxPerPage));
+        const pagesToRender = Math.min(totalPages, maxPages);
+
+        for (let page = 0; page < pagesToRender; page++) {
+            const srcY = page * pxPerPage;
+            const sliceHeight = Math.min(pxPerPage, srcHeight - srcY);
+            tempCanvas.height = sliceHeight;
+            tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+            tempCtx.drawImage(canvas, 0, srcY, srcWidth, sliceHeight, 0, 0, srcWidth, sliceHeight);
+
+            const sliceImg = tempCanvas.toDataURL('image/png');
+            const slicePdfHeight = sliceHeight * scale;
+            const x = (pageWidth - availableWidth) / 2; // centrar horizontalmente
+            const y = margin; // margen superior consistente
+
+            if (page > 0) pdf.addPage();
+            pdf.addImage(sliceImg, 'PNG', x, y, availableWidth, slicePdfHeight, undefined, 'FAST');
+        }
+
+        pdf.save('reporte.pdf');
+        alert('PDF generado correctamente.');
+    } catch (err) {
+        console.error('Error al exportar PDF:', err);
+        alert('No se pudo generar el PDF.');
+    }
+}

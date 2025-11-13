@@ -67,7 +67,7 @@ function login() {
         return;
     }
 
-    if ((role === 'admin' && username === 'admin' && password === '123') ||
+    if ((role === 'admin' && username === 'admin' && password === '1234') ||
         (role === 'Usuario' && username === 'mecanico' && password === '123')) {
         mostrarDashboard(role);
     } else {
@@ -3592,46 +3592,50 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Botón Exportar PDF (opcional)
     const btnExportPDF = document.getElementById('btn-exportar-pdf');
-    if (btnExportPDF && window.html2canvas && window.jspdf) {
-        btnExportPDF.addEventListener('click', async () => {
-            const targetSelector = btnExportPDF.getAttribute('data-pdf-target') || '#reportes-section';
-            await exportarReportePDF(targetSelector, { size: 'a4', orientation: 'portrait', maxPages: 2, margin: 10 });
-        });
-    }
 });
 
 // ====== UTILIDAD: EXPORTAR PDF DE REPORTES ======
-async function exportarReportePDF(containerSelector = '#reportes-section', opts = {}) {
+async function exportarReportePDF() {
     try {
-        const { jsPDF } = window.jspdf || {};
-        if (!jsPDF || !window.html2canvas) {
+        const JSPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+        if (!JSPDF || !window.html2canvas) {
             alert('No se encontraron librerías de exportación (jsPDF/html2canvas).');
             return;
         }
 
-        const el = document.querySelector(containerSelector) || document.querySelector('.sub-section-container.full-width') || document.querySelector('.sub-section-container') || document.querySelector('.main-content');
-        if (!el) {
-            alert('No se encontró el contenedor del reporte.');
+        const contenedor = document.getElementById('apartado-reportes');
+        if (!contenedor) {
+            alert('No se encontró la sección de reportes.');
             return;
         }
-        // Llevar el contenedor al tope de la vista para evitar espacios en blanco
-        el.scrollIntoView({ behavior: 'auto', block: 'start' });
-        await new Promise(r => setTimeout(r, 100));
 
-        const size = (opts.size || 'a4').toLowerCase();
-        const orientation = opts.orientation === 'landscape' ? 'landscape' : 'portrait';
-        const margin = Number.isFinite(opts.margin) ? opts.margin : 10; // pt
-        const maxPages = Number.isFinite(opts.maxPages) ? opts.maxPages : 2;
+        const estabaOculto = contenedor.style.display === 'none' || getComputedStyle(contenedor).display === 'none';
+        if (estabaOculto) {
+            if (typeof mostrarApartado === 'function') {
+                mostrarApartado('reportes');
+            }
+        } else {
+            if (typeof generarReportes === 'function') {
+                await generarReportes();
+            }
+        }
 
-        const prevBg = el.style.backgroundColor;
-        el.style.backgroundColor = '#ffffff';
+        contenedor.scrollIntoView({ behavior: 'auto', block: 'start' });
+        await new Promise(r => setTimeout(r, 500));
+
+        const size = 'a4';
+        const orientation = 'portrait';
+        const margin = 10; // pt
+        const maxPages = 2;
+
+        const prevBg = contenedor.style.backgroundColor;
+        contenedor.style.backgroundColor = '#ffffff';
 
         // Reemplazar canvases (gráficos) por imágenes para evitar lienzos vacíos en PDF
-        const canvasNodes = Array.from(el.querySelectorAll('canvas'));
+        const canvasNodes = Array.from(contenedor.querySelectorAll('canvas'));
         const swaps = [];
         for (const c of canvasNodes) {
             try {
-                // Forzar re-render
                 const dataUrl = c.toDataURL('image/png');
                 const img = document.createElement('img');
                 img.src = dataUrl;
@@ -3641,12 +3645,11 @@ async function exportarReportePDF(containerSelector = '#reportes-section', opts 
                 c.style.display = 'none';
                 swaps.push({ canvas: c, img });
             } catch (e) {
-                // Si falla (tainted), intentamos al menos mostrar el canvas como está
                 console.warn('No se pudo convertir canvas a imagen, se captura directo:', e);
             }
         }
 
-        const canvas = await html2canvas(el, {
+        const canvas = await html2canvas(contenedor, {
             backgroundColor: '#ffffff',
             useCORS: true,
             allowTaint: true,
@@ -3656,15 +3659,16 @@ async function exportarReportePDF(containerSelector = '#reportes-section', opts 
             removeContainer: true
         });
 
-        el.style.backgroundColor = prevBg || '';
+        contenedor.style.backgroundColor = prevBg || '';
 
         // Restaurar canvases
         for (const swap of swaps) {
             swap.canvas.style.display = '';
-            swap.img.parentNode.removeChild(swap.img);
+            if (swap.img.parentNode) swap.img.parentNode.removeChild(swap.img);
         }
 
-        const pdf = new jsPDF({ orientation, unit: 'pt', format: size });
+        const pdf = new JSPDF({ orientation, unit: 'pt', format: size });
+
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
         const availableWidth = pageWidth - margin * 2;
@@ -3673,7 +3677,6 @@ async function exportarReportePDF(containerSelector = '#reportes-section', opts 
         const srcWidth = canvas.width;
         const srcHeight = canvas.height;
         const scale = availableWidth / srcWidth; // escalar a ancho de página
-        const totalPdfHeight = srcHeight * scale;
 
         // Slicing: convertir la imagen en varias páginas usando trozos de canvas
         const tempCanvas = document.createElement('canvas');
@@ -3701,6 +3704,12 @@ async function exportarReportePDF(containerSelector = '#reportes-section', opts 
         }
 
         pdf.save('reporte.pdf');
+
+        // Volver a la vista principal si estaba oculta
+        if (estabaOculto && typeof mostrarApartado === 'function') {
+            mostrarApartado('');
+        }
+
         alert('PDF generado correctamente.');
     } catch (err) {
         console.error('Error al exportar PDF:', err);

@@ -38,6 +38,294 @@ async function initializeFirebase() {
     }
 }
 
+// ====== ACCIONES: ENTRADAS ======
+async function actualizarEntrada(docId) {
+    if (!db) { alert('Firestore no está inicializado.'); return; }
+    try {
+        const ref = db.collection('historialEntradas').doc(docId);
+        const snap = await ref.get();
+        if (!snap.exists) { alert('La entrada ya no existe.'); return; }
+        const data = snap.data();
+
+        const nuevaFecha = prompt('Actualizar fecha (YYYY-MM-DD):', data.fecha || '');
+        if (nuevaFecha === null) return;
+        const nuevaCantidadStr = prompt('Actualizar cantidad:', data.cantidad);
+        if (nuevaCantidadStr === null) return;
+        const nuevaCantidad = parseInt(nuevaCantidadStr, 10);
+        if (isNaN(nuevaCantidad) || nuevaCantidad <= 0) { alert('Cantidad inválida.'); return; }
+
+        const diff = nuevaCantidad - (parseInt(data.cantidad, 10) || 0);
+
+        // Ajustar stock por código
+        const invSnap = await db.collection('inventario').where('codigo', '==', (data.codigo || '').toUpperCase()).limit(1).get();
+        if (!invSnap.empty && diff !== 0) {
+            await invSnap.docs[0].ref.update({
+                stock: firebase.firestore.FieldValue.increment(diff),
+                fechaActualizacion: nuevaFecha || new Date().toISOString().slice(0,10)
+            });
+        }
+
+        await ref.update({ fecha: nuevaFecha, cantidad: nuevaCantidad });
+        alert('Entrada actualizada.');
+        await Promise.all([
+            cargarHistorialEntradas(),
+            cargarInventarioCompleto(),
+            verificarStockBajo(),
+            actualizarEstadisticas()
+        ]);
+    } catch (e) {
+        console.error('Error al actualizar entrada:', e);
+        alert('No se pudo actualizar la entrada.');
+    }
+}
+
+async function eliminarEntrada(docId, codigo, nombre, cantidad) {
+    if (!db) { alert('Firestore no está inicializado.'); return; }
+    if (!confirm(`¿Eliminar la entrada de ${cantidad} de ${nombre || codigo}?`)) return;
+    try {
+        // Revertir stock
+        const invSnap = await db.collection('inventario').where('codigo', '==', (codigo || '').toUpperCase()).limit(1).get();
+        if (!invSnap.empty) {
+            await invSnap.docs[0].ref.update({
+                stock: firebase.firestore.FieldValue.increment(-(parseInt(cantidad,10)||0) )
+            });
+        }
+        await db.collection('historialEntradas').doc(docId).delete();
+        alert('Entrada eliminada.');
+        await Promise.all([
+            cargarHistorialEntradas(),
+            cargarInventarioCompleto(),
+            verificarStockBajo(),
+            actualizarEstadisticas()
+        ]);
+    } catch (e) {
+        console.error('Error al eliminar entrada:', e);
+        alert('No se pudo eliminar la entrada.');
+    }
+}
+
+// ====== ACCIONES: SALIDAS ======
+async function actualizarSalida(docId) {
+    if (!db) { alert('Firestore no está inicializado.'); return; }
+    try {
+        const ref = db.collection('repuestosSalida').doc(docId);
+        const snap = await ref.get();
+        if (!snap.exists) { alert('La salida ya no existe.'); return; }
+        const data = snap.data();
+
+        const nuevaFecha = prompt('Actualizar fecha (YYYY-MM-DD):', data.fecha || '');
+        if (nuevaFecha === null) return;
+        const nuevaCantidadStr = prompt('Actualizar cantidad:', data.cantidad);
+        if (nuevaCantidadStr === null) return;
+        const nuevaCantidad = parseInt(nuevaCantidadStr, 10);
+        if (isNaN(nuevaCantidad) || nuevaCantidad <= 0) { alert('Cantidad inválida.'); return; }
+
+        const nuevoCliente = prompt('Actualizar cliente:', data.cliente || '');
+        if (nuevoCliente === null) return;
+        const nuevoOT = prompt('Actualizar N° OT:', data.numeroOT || '');
+        if (nuevoOT === null) return;
+        const nuevaPlaca = prompt('Actualizar placa:', data.placa || data.placas || '');
+        if (nuevaPlaca === null) return;
+        const nuevoKMStr = prompt('Actualizar kilometraje:', data.kilometraje || '');
+        if (nuevoKMStr === null) return;
+        const nuevoKM = parseInt(nuevoKMStr, 10) || 0;
+        const nuevoServicio = prompt('Actualizar servicio:', data.servicio || '');
+        if (nuevoServicio === null) return;
+
+        const diff = nuevaCantidad - (parseInt(data.cantidad, 10) || 0);
+
+        // Ajustar stock por nombre o código
+        let invSnap = null;
+        if (data.codigo) {
+            invSnap = await db.collection('inventario').where('codigo', '==', (data.codigo || '').toUpperCase()).limit(1).get();
+        }
+        if (!invSnap || invSnap.empty) {
+            invSnap = await db.collection('inventario').where('nombre', '==', (data.repuesto || '').toUpperCase()).limit(1).get();
+        }
+        if (!invSnap.empty && diff !== 0) {
+            // Salida reduce stock, si nuevaCantidad sube, restamos diff; si baja, sumamos (-diff)
+            await invSnap.docs[0].ref.update({
+                stock: firebase.firestore.FieldValue.increment(-diff),
+                fechaActualizacion: nuevaFecha || new Date().toISOString().slice(0,10)
+            });
+        }
+
+        await ref.update({
+            fecha: nuevaFecha,
+            cantidad: nuevaCantidad,
+            cliente: nuevoCliente,
+            numeroOT: nuevoOT,
+            placa: nuevaPlaca,
+            kilometraje: nuevoKM,
+            servicio: nuevoServicio
+        });
+
+        alert('Salida actualizada.');
+        await Promise.all([
+            cargarRepuestosSalida(),
+            cargarInventarioCompleto(),
+            verificarStockBajo(),
+            actualizarEstadisticas()
+        ]);
+    } catch (e) {
+        console.error('Error al actualizar salida:', e);
+        alert('No se pudo actualizar la salida.');
+    }
+}
+
+async function eliminarSalida(docId, repuesto, cantidad) {
+    if (!db) { alert('Firestore no está inicializado.'); return; }
+    if (!confirm(`¿Eliminar la salida de ${cantidad} de ${repuesto}?`)) return;
+    try {
+        // Revertir stock por nombre
+        const invSnap = await db.collection('inventario').where('nombre', '==', (repuesto || '').toUpperCase()).limit(1).get();
+        if (!invSnap.empty) {
+            await invSnap.docs[0].ref.update({
+                stock: firebase.firestore.FieldValue.increment((parseInt(cantidad,10)||0))
+            });
+        }
+        await db.collection('repuestosSalida').doc(docId).delete();
+        alert('Salida eliminada.');
+        await Promise.all([
+            cargarRepuestosSalida(),
+            cargarInventarioCompleto(),
+            verificarStockBajo(),
+            actualizarEstadisticas()
+        ]);
+    } catch (e) {
+        console.error('Error al eliminar salida:', e);
+        alert('No se pudo eliminar la salida.');
+    }
+}
+
+// ====== ELIMINAR TODA LA BASE DE DATOS (con confirmación) ======
+async function deleteCollectionBatch(collectionName, batchSize = 300) {
+    while (true) {
+        const snap = await db.collection(collectionName).limit(batchSize).get();
+        if (snap.empty) break;
+        const batch = db.batch();
+        snap.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+        // Permitir que el navegador respire
+        await new Promise(r => setTimeout(r, 50));
+    }
+}
+
+async function eliminarBaseDatos() {
+    if (!db) { alert('Firestore no está inicializado.'); return; }
+
+    const aviso = 'ADVERTENCIA: Esta acción eliminará TODOS los datos de Inventario, Entradas, Salidas y Solicitudes. No se puede deshacer.';
+    const ok1 = confirm(aviso + '\n\n¿Deseas continuar?');
+    if (!ok1) return;
+
+    const texto = prompt('Para confirmar, escribe exactamente: ELIMINAR');
+    if (texto !== 'ELIMINAR') { alert('Operación cancelada.'); return; }
+
+    try {
+        // Deshabilitar botones mientras se ejecuta
+        const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent && b.textContent.includes('Eliminar BD'));
+        if (btn) { btn.disabled = true; btn.innerText = 'Eliminando...'; }
+
+        const colecciones = ['inventario', 'historialEntradas', 'repuestosSalida', 'solicitudesRepuestos'];
+        for (const col of colecciones) {
+            await deleteCollectionBatch(col);
+        }
+
+        // Limpiar UI y estado
+        localStorage.removeItem('ultimaActualizacionBD');
+        actualizarEtiquetaUltimaActualizacion();
+        await Promise.all([
+            cargarInventarioCompleto(),
+            cargarHistorialEntradas(),
+            cargarRepuestosSalida(),
+            verificarStockBajo(),
+            actualizarEstadisticas()
+        ]);
+
+        alert('Base de datos eliminada correctamente.');
+    } catch (e) {
+        console.error('Error al eliminar la base de datos:', e);
+        alert('Ocurrió un error al eliminar la base de datos. Revisa la consola para más detalles.');
+    } finally {
+        const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent && (b.textContent.includes('Eliminando') || b.textContent.includes('Eliminar BD')));
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Eliminar BD'; }
+    }
+}
+
+// ====== REFRESCAR BD cada 30 días ======
+function diasEntre(f1, f2) {
+    const MS = 24*60*60*1000;
+    return Math.floor((f2 - f1) / MS);
+}
+
+function actualizarEtiquetaUltimaActualizacion() {
+    const span = document.getElementById('ultima-actualizacion-30d');
+    const iso = localStorage.getItem('ultimaActualizacionBD');
+    if (!span) return;
+    if (!iso) {
+        span.textContent = 'Última actualización: N/A';
+    } else {
+        const d = new Date(iso);
+        span.textContent = `Última actualización: ${d.toLocaleDateString('es-PE')}`;
+        const diff = diasEntre(d, new Date());
+        if (diff >= 30) {
+            span.style.color = '#e74c3c';
+            span.title = 'Han pasado 30 días o más. Se recomienda refrescar la base de datos.';
+        } else {
+            span.style.color = '#7f8c8d';
+            const restantes = 30 - diff;
+            span.title = `Faltan ${restantes} día(s) para poder refrescar la base de datos.`;
+        }
+    }
+}
+
+async function refrescarBaseDatos(forzado = false) {
+    const iso = localStorage.getItem('ultimaActualizacionBD');
+    const ahora = new Date();
+    const puedeRefrescar = () => {
+        if (!iso) return true;
+        const anterior = new Date(iso);
+        return diasEntre(anterior, ahora) >= 30;
+    };
+
+    if (!forzado && !puedeRefrescar()) {
+        const anterior = new Date(iso);
+        const quedan = 30 - diasEntre(anterior, ahora);
+        alert(`Aún no han transcurrido los 30 días calendario.\nFaltan ${quedan} día(s) para poder refrescar la base de datos.`);
+        return;
+    }
+
+    try {
+        // Muestra una pequeña indicación en la etiqueta
+        const span = document.getElementById('ultima-actualizacion-30d');
+        if (span) { span.textContent = 'Actualizando...'; span.style.color = '#2c3e50'; }
+
+        // "Refrescar" = recargar vistas y estadísticas desde Firestore
+        await Promise.all([
+            cargarInventarioCompleto(),
+            cargarHistorialEntradas(),
+            cargarRepuestosSalida(),
+            verificarStockBajo(),
+            actualizarEstadisticas()
+        ]);
+
+        localStorage.setItem('ultimaActualizacionBD', ahora.toISOString());
+        actualizarEtiquetaUltimaActualizacion();
+        alert('Base de datos refrescada correctamente.');
+    } catch (e) {
+        console.error('Error al refrescar la base de datos:', e);
+        alert('No se pudo refrescar la base de datos.');
+    }
+}
+
+// Inicializar etiqueta al cargar la página
+document.addEventListener('DOMContentLoaded', actualizarEtiquetaUltimaActualizacion);
+
+// Inicializar Firebase al cargar la página (asegura que db esté listo)
+document.addEventListener('DOMContentLoaded', () => {
+    initializeFirebase();
+});
+
 // Función para seleccionar rol con estilo visual
 function selectRole(role) {
     document.querySelectorAll('.role-option').forEach(option => {
@@ -173,7 +461,7 @@ async function actualizarEstadisticas() {
         let stockBajoCount = 0;
         inventarioSnapshot.forEach(doc => {
             const item = doc.data();
-            if (item.stock <= 5) {
+            if (item.stock < 3) {
                 stockBajoCount++;
             }
         });
@@ -510,9 +798,10 @@ async function agregarSalida(event) {
     const numeroOT = document.getElementById('salida-numero-ot').value.trim();
     const placa = document.getElementById('salida-placa').value.trim();
     const kilometraje = document.getElementById('salida-kilometraje').value || 0;
+    const servicio = (document.getElementById('salida-servicio')?.value || '').trim();
 
-    if (!codigo || isNaN(cantidad) || cantidad <= 0 || !cliente || !numeroOT) {
-        alert('Por favor complete código, cantidad, cliente y Número OT correctamente.');
+    if (!codigo || isNaN(cantidad) || cantidad <= 0 || !cliente || !numeroOT || !servicio) {
+        alert('Por favor complete código, cantidad, cliente, Número OT y Servicio correctamente.');
         return;
     }
 
@@ -552,7 +841,9 @@ async function agregarSalida(event) {
             numeroOT: numeroOT,
             cantidad: cantidad,
             placa: placa,
-            kilometraje: kilometraje
+            kilometraje: kilometraje,
+            servicio: servicio,
+            codigo: codigo
         });
 
         alert(`Salida registrada: ${cantidad} unidades de ${productoData.nombre}`);
@@ -766,28 +1057,50 @@ async function cargarRepuestosSalida() {
         querySnapshot.forEach(doc => {
             const item = doc.data();
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${item.fecha}</td>
-                <td>${item.repuesto}</td>
-                <td>${item.cliente}</td>
-                <td>${item.numeroOT}</td>
-                <td>${item.cantidad}</td>
-                <td>${item.placa}</td>
-                <td>${item.kilometraje}</td>
-                <td class="action-buttons-table">
-                    <button class="btn-icon btn-icon-edit" onclick="actualizarSalida('${doc.id}')" title="Actualizar salida">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn-icon btn-icon-delete" onclick="eliminarSalida('${doc.id}', '${item.repuesto}', ${item.cantidad})" title="Eliminar salida">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            `;
+
+            const values = [
+                item.numeroOT || '',
+                item.fecha || '',
+                item.codigo || '',
+                item.repuesto || '',
+                item.cantidad || 0,
+                item.cliente || '',
+                (item.placa || item.placas || ''),
+                (item.kilometraje || ''),
+                (item.servicio || '')
+            ];
+
+            values.forEach((val, idx) => {
+                const td = document.createElement('td');
+                td.textContent = val;
+                // idx=3 => Descripción; idx=8 => Servicio
+                if (idx === 3 || idx === 8) td.className = 'salida-wrap-2lines';
+                tr.appendChild(td);
+            });
+
+            const actionsTd = document.createElement('td');
+            actionsTd.className = 'action-buttons-table acciones-cell';
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn-icon btn-icon-edit';
+            editBtn.title = 'Actualizar salida';
+            editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+            editBtn.onclick = () => actualizarSalida(doc.id);
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn-icon btn-icon-delete';
+            delBtn.title = 'Eliminar salida';
+            delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            delBtn.onclick = () => eliminarSalida(doc.id, item.repuesto, item.cantidad);
+
+            actionsTd.appendChild(editBtn);
+            actionsTd.appendChild(delBtn);
+            tr.appendChild(actionsTd);
+
             tbody.appendChild(tr);
         });
     } catch (error) {
         console.error("Error al cargar repuestos de salida: ", error);
-        tbody.innerHTML = '<tr><td colspan="8">Error al cargar datos.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7">Error al cargar datos.</td></tr>';
     }
 }
 
@@ -840,10 +1153,12 @@ async function cargarHistorialEntradas() {
             actionsCell.appendChild(deleteButton);
             
             tr.innerHTML = `
-                <td>${item.fecha}</td>
-                <td>${item.codigo}</td>
-                <td>${item.nombre}</td>
-                <td>${item.cantidad}</td>
+                <td>${item.documentoGuia || ''}</td>
+                <td>${item.fecha || ''}</td>
+                <td>${item.codigo || ''}</td>
+                <td>${item.nombre || ''}</td>
+                <td>${item.lote || ''}</td>
+                <td>${item.cantidad || 0}</td>
             `;
             tr.appendChild(actionsCell);
             tbody.appendChild(tr);
@@ -857,7 +1172,7 @@ async function cargarHistorialEntradas() {
 
 async function cargarInventarioCompleto() {
     const tbody = document.querySelector('#tabla-inventario tbody');
-    tbody.innerHTML = '<tr><td colspan="8">Cargando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7">Cargando...</td></tr>';
     
     if (!db) {
         tbody.innerHTML = '<tr><td colspan="8">Error: Firestore no está inicializado.</td></tr>';
@@ -870,7 +1185,7 @@ async function cargarInventarioCompleto() {
         tbody.innerHTML = '';
 
         if(querySnapshot.empty) {
-            tbody.innerHTML = '<tr><td colspan="8">No hay productos.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7">No hay productos.</td></tr>';
             return;
         }
         
@@ -878,12 +1193,11 @@ async function cargarInventarioCompleto() {
             const item = doc.data();
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${item.fechaActualizacion || 'N/A'}</td>
                 <td>${item.codigo}</td>
                 <td>${item.nombre}</td>
-                <td>${item.lote || 'N/A'}</td>
-                <td>S/ ${parseFloat(item.costoUnitario).toFixed(2)}</td>
-                <td>S/ ${parseFloat(item.precioVenta).toFixed(2)}</td>
+                <td>${item.lote || ''}</td>
+                <td>${item.entradas ?? ''}</td>
+                <td>${item.salidas ?? ''}</td>
                 <td>${item.stock}</td>
                 <td class="action-buttons-table">
                     <button class="btn-icon btn-icon-edit" onclick="actualizarProducto('${doc.id}')" title="Actualizar producto">
@@ -1099,14 +1413,253 @@ async function exportarExcel() {
         const dataSolicitudes = solicitudesSnapshot.docs.map(doc => doc.data());
         const wsSolicitudes = XLSX.utils.json_to_sheet(dataSolicitudes);
         XLSX.utils.book_append_sheet(wb, wsSolicitudes, 'Historial de Solicitudes');
-
+        
         // Descargar el archivo
         XLSX.writeFile(wb, 'Reporte_Inventario_Movimientos.xlsx');
         alert("Reporte de Excel generado exitosamente.");
-
     } catch (error) {
         console.error("Error al exportar a Excel: ", error);
         alert("Hubo un error al generar el reporte de Excel.");
+    }
+}
+
+// ====== IMPORTAR EXCEL (multi-hoja) con progreso ======
+async function importarExcelInventario(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    if (!db) { alert('Firestore no está inicializado.'); return; }
+
+    // UI progreso
+    const cont = document.getElementById('import-progress');
+    const bar = document.getElementById('import-progress-bar');
+    const txt = document.getElementById('import-progress-text');
+    const setProgress = (pct, label) => {
+        if (bar) bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+        if (txt) txt.textContent = (Math.round(pct)) + '%'+(label?` • ${label}`:'');
+    };
+    if (cont) { cont.style.display = 'flex'; setProgress(0, 'Preparando...'); }
+
+    const processWorkbook = async (wb) => {
+        try {
+
+            const normalizaNumero = (v, dec = 2) => {
+                const n = parseFloat(String(v).toString().replace(/,/g, '.'));
+                if (isNaN(n)) return (0).toFixed(dec);
+                return n.toFixed(dec);
+            };
+            const normalizaEntero = (v) => {
+                const n = parseInt(v, 10);
+                return isNaN(n) ? 0 : n;
+            };
+            const normalizaFecha = (v) => {
+                if (!v) return new Date().toISOString().slice(0,10);
+                if (typeof v === 'number') {
+                    const epoch = new Date(Date.UTC(1899, 11, 30));
+                    const d = new Date(epoch.getTime() + v * 86400000);
+                    return d.toISOString().slice(0,10);
+                }
+                const d = new Date(v);
+                return isNaN(d.getTime()) ? new Date().toISOString().slice(0,10) : d.toISOString().slice(0,10);
+            };
+
+            const sheetByNames = (variants) => {
+                const upper = wb.SheetNames.map(n => n.trim().toUpperCase());
+                const idx = upper.findIndex(n => variants.includes(n));
+                return idx >= 0 ? wb.Sheets[wb.SheetNames[idx]] : null;
+            };
+
+            let stockSheet = sheetByNames(['STOCK','INVENTARIO']);
+            const salidasSheet = sheetByNames(['SALIDAS','SALIDA']);
+            const entradasSheet = sheetByNames(['ENTRADA','ENTRADAS']);
+
+            // Si no hay coincidencia pero solo hay una hoja (CSV típico), usar la primera como STOCK
+            if (!stockSheet && wb.SheetNames && wb.SheetNames.length === 1) {
+                stockSheet = wb.Sheets[wb.SheetNames[0]];
+            }
+
+            // Si aún no hay hoja STOCK, intentar auto-detectar por encabezados
+            if (!stockSheet) {
+                const wanted = new Set(['codigo','descripcion','stock','stock actual','lote','entradas','salidas']);
+                for (const name of wb.SheetNames) {
+                    const ws = wb.Sheets[name];
+                    const headerRow = XLSX.utils.sheet_to_json(ws, { header: 1, range: 0, blankrows: false })[0] || [];
+                    const normalized = (headerRow || []).map(h => (String(h||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim()));
+                    const match = normalized.some(h => wanted.has(h));
+                    if (match) { stockSheet = ws; break; }
+                }
+            }
+
+            // Contar total de filas para progreso
+            const len = (ws) => ws ? XLSX.utils.sheet_to_json(ws, { defval: '' }).length : 0;
+            const totalRows = len(stockSheet) + len(salidasSheet) + len(entradasSheet);
+            let done = 0;
+            const advance = (step, label) => {
+                done += step;
+                const pct = totalRows ? (done / totalRows) * 100 : 100;
+                setProgress(pct, label);
+            };
+
+            let totalInv = 0, totalSal = 0, totalEnt = 0;
+
+            // Helper: normalizar clave de encabezado
+            const normKey = (k) => String(k || '')
+                .toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim()
+                .replace(/\s+/g, ' ');
+
+            const mapCanonical = (key) => {
+                const k = normKey(key);
+                if (k === 'codigo' || k === 'cod' || k === 'codigo producto' || k === 'codigo de producto' || k === 'codigo prod' || k === 'cod producto') return 'codigo';
+                if (k === 'descripcion' || k === 'nombre' || k === 'producto' || k === 'repuesto') return 'descripcion';
+                if (k === 'lote') return 'lote';
+                if (k === 'costo unitario' || k === 'costo unitario s' || k === 'costo') return 'costoUnitario';
+                if (k === 'precio venta' || k === 'precio de venta' || k === 'precio de venta s' || k === 'precio') return 'precioVenta';
+                if (k === 'stock actual' || k === 'stock') return 'stock';
+                if (k === 'entradas' || k === 'entrada') return 'entradas';
+                if (k === 'salidas' || k === 'salida') return 'salidas';
+                if (k === 'fecha ultima actualizacion' || k === 'fecha') return 'fechaActualizacion';
+                return k; // clave genérica
+            };
+
+            const normalizeRowKeys = (row) => {
+                const out = {};
+                Object.keys(row || {}).forEach(orig => {
+                    const canon = mapCanonical(orig);
+                    out[canon] = row[orig];
+                });
+                return out;
+            };
+
+            // 1) STOCK -> inventario
+            if (!stockSheet) {
+                alert('No se encontró la hoja "STOCK" ni "INVENTARIO" en el archivo. Renombre la hoja a STOCK.');
+            }
+            if (stockSheet) {
+                const rows = XLSX.utils.sheet_to_json(stockSheet, { defval: '' });
+                if (!rows || rows.length === 0) {
+                    alert('La hoja STOCK no tiene filas de datos debajo del encabezado. Asegúrate de que la fila 2 en adelante tenga datos.');
+                }
+                let batch = db.batch();
+                let ops = 0;
+                for (const raw of rows) {
+                    const r = normalizeRowKeys(raw);
+                    const codigo = String(r.codigo || '').trim().toUpperCase();
+                    let nombre = String(r.descripcion || '').trim().toUpperCase();
+                    const lote = String(r.lote || '').trim();
+                    const costoUnitario = normalizaNumero(r.costoUnitario, 2);
+                    const precioVenta = normalizaNumero(r.precioVenta, 2);
+                    const stock = normalizaEntero(r.stock);
+                    const entradasSum = normalizaEntero(r.entradas);
+                    const salidasSum = normalizaEntero(r.salidas);
+                    const fechaActualizacion = normalizaFecha(r.fechaActualizacion);
+                    if (!codigo) { advance(1, 'STOCK'); continue; }
+                    if (!nombre) nombre = codigo; // fallback
+                    // Sanear ID de documento (Firestore no permite '/')
+                    const safeId = codigo.replace(/[\\\/]/g, '-');
+                    const ref = db.collection('inventario').doc(safeId);
+                    batch.set(ref, { codigo, nombre, lote, costoUnitario, precioVenta, stock, fechaActualizacion, entradas: entradasSum, salidas: salidasSum }, { merge: true });
+                    ops++; totalInv++; advance(1, `STOCK ${totalInv}`);
+                    if (ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0; }
+                }
+                if (ops > 0) await batch.commit();
+                if (totalInv === 0 && rows && rows.length > 0) {
+                    const firstKeys = Object.keys(rows[0] || {}).join(', ');
+                    alert('No se encontró ningún "Código" válido en STOCK. Verifique los encabezados y que las celdas de código no estén vacías. Encabezados detectados: ' + firstKeys);
+                }
+            }
+
+            // 2) SALIDAS -> repuestosSalida
+            if (salidasSheet) {
+                const rows = XLSX.utils.sheet_to_json(salidasSheet, { defval: '' });
+                let batch = db.batch();
+                let ops = 0;
+                for (const r of rows) {
+                    const fecha = normalizaFecha(r.Fecha || r.fecha || r.FECHA);
+                    const repuesto = String(r['Descripción'] || r.Descripción || r.Repuesto || r.repuesto || r.Nombre || r.nombre || '').trim().toUpperCase();
+                    const cliente = String(r.Cliente || r.cliente || r['cliente'] || '').trim();
+                    const numeroOT = String(r['Nro. Documento(OT)'] || r['N° OT'] || r['Nº OT'] || r['NRO OT'] || r.NumeroOT || r.numeroOT || r.OT || '').trim();
+                    const cantidad = normalizaEntero(r.Cantidad || r.cantidad || r.CANTIDAD);
+                    const placa = String(r.Placa || r.placa || r.placas || r['placas'] || '').trim();
+                    const kilometraje = normalizaEntero(r.Kilometraje || r.kilometraje || r.KM || r.km || r.kilometraje);
+                    const codigoSalida = String(r['Codigo Producto'] || r['Codigo de Producto'] || r.Codigo || '').trim().toUpperCase();
+                    const servicio = String(r.Servicio || r.servicio || '').trim();
+                    if (!repuesto || !cantidad) { advance(1, 'SALIDAS'); continue; }
+                    const ref = db.collection('repuestosSalida').doc();
+                    const payloadSalida = { fecha, repuesto, cliente, numeroOT, cantidad, placa, kilometraje };
+                    if (codigoSalida) payloadSalida.codigo = codigoSalida;
+                    if (servicio) payloadSalida.servicio = servicio;
+                    batch.set(ref, payloadSalida);
+                    ops++; totalSal++; advance(1, `SALIDAS ${totalSal}`);
+                    if (ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0; }
+                }
+                if (ops > 0) await batch.commit();
+            }
+
+            // 3) ENTRADA(S) -> historialEntradas
+            if (entradasSheet) {
+                const rows = XLSX.utils.sheet_to_json(entradasSheet, { defval: '' });
+                let batch = db.batch();
+                let ops = 0;
+                for (const r of rows) {
+                    const fecha = normalizaFecha(r.Fecha || r.fecha || r.FECHA);
+                    const codigo = String(r['Codigo Producto'] || r['Codigo de Producto'] || r.Codigo || r.codigo || r.CODIGO || '').trim().toUpperCase();
+                    const nombre = String(r['Descripción'] || r.Descripción || r.descripcion || r.Descripcion || r.Nombre || r.nombre || r.NOMBRE || '').trim().toUpperCase();
+                    const lote = String(r.Lote || r.lote || r.LOTE || '').trim();
+                    const cantidad = normalizaEntero(r.Cantidad || r.cantidad || r.CANTIDAD);
+                    const documentoGuia = String(r['Nro. Documento (GUIA)'] || r['Nro. Documento(Guia)'] || '').trim();
+                    if (!codigo && !nombre) { advance(1, 'ENTRADAS'); continue; }
+                    const ref = db.collection('historialEntradas').doc();
+                    const payload = { fecha, codigo, nombre, cantidad };
+                    if (lote) payload.lote = lote;
+                    if (documentoGuia) payload.documentoGuia = documentoGuia;
+                    batch.set(ref, payload);
+                    ops++; totalEnt++; advance(1, `ENTRADAS ${totalEnt}`);
+                    if (ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0; }
+                }
+                if (ops > 0) await batch.commit();
+            }
+
+            setProgress(100, 'Completado');
+            alert(`Importación completada.\nInventario: ${totalInv}\nEntradas: ${totalEnt}\nSalidas: ${totalSal}`);
+            cargarInventarioCompleto();
+            verificarStockBajo();
+            actualizarEstadisticas();
+            event.target.value = '';
+        } catch (err) {
+            console.error('Error al importar Excel:', err);
+            const names = (wb && wb.SheetNames) ? wb.SheetNames.join(', ') : 'N/A';
+            alert('No se pudo importar el Excel. Detalle: ' + (err && err.message ? err.message : err) + '\nHojas detectadas: ' + names);
+        } finally {
+            if (cont) setTimeout(() => { cont.style.display = 'none'; setProgress(0); }, 600);
+        }
+    };
+
+    // Detección de CSV y lectura apropiada
+    const isCSV = (file.name || '').toLowerCase().endsWith('.csv');
+    const reader = new FileReader();
+    if (isCSV) {
+        reader.onload = async (e) => {
+            try {
+                const text = e.target.result;
+                // Intentar detectar separador ; o ,
+                const hasSemicolon = text.split('\n', 2).some(line => line.includes(';'));
+                const wb = XLSX.read(text, { type: 'string', FS: hasSemicolon ? ';' : ',' });
+                await processWorkbook(wb);
+            } catch (err) {
+                console.error('Error al procesar CSV:', err);
+                alert('No se pudo importar el CSV. Verifique el delimitador y los encabezados.');
+            }
+        };
+        reader.readAsText(file);
+    } else {
+        reader.onload = async (e) => {
+            const data = new Uint8Array(e.target.result);
+            const wb = XLSX.read(data, { type: 'array' });
+            await processWorkbook(wb);
+        };
+        reader.readAsArrayBuffer(file);
     }
 }
 
@@ -1122,8 +1675,8 @@ async function verificarStockBajo() {
     const stockLowList = document.getElementById('stock-low-list');
     const notificationContainer = document.getElementById('stock-notification-container');
     
-    stockLowList.innerHTML = ''; 
-    notificationContainer.style.display = 'none';
+    if (stockLowList) stockLowList.innerHTML = '';
+    if (notificationContainer) notificationContainer.style.display = 'none';
 
     if (!db) {
         console.error("Firestore no está inicializado (verificarStockBajo)");
@@ -1137,76 +1690,16 @@ async function verificarStockBajo() {
 
         querySnapshot.forEach(doc => {
             const item = doc.data();
-            if (item.stock <= 5) {
-                productosBajoStock.push({
-                    nombre: item.nombre,
-                    stock: item.stock
-                });
+            if (item.stock < 3) {
+                productosBajoStock.push({ nombre: item.nombre, stock: item.stock });
             }
         });
 
-        if (productosBajoStock.length > 0) {
+        if (productosBajoStock.length > 0 && stockLowList && notificationContainer) {
             productosBajoStock.forEach(producto => {
                 const li = document.createElement('li');
                 li.textContent = `- ${producto.nombre} (Stock: ${producto.stock})`;
                 stockLowList.appendChild(li);
-            });
-            notificationContainer.style.display = 'block';
-        } else {
-            notificationContainer.style.display = 'none';
-        }
-
-    } catch (error) {
-        console.error("Error al verificar stock bajo:", error);
-    } finally {
-        isCheckingStock = false;
-    }
-}
-
-// --- FUNCIÓN PARA VERIFICAR SOLICITUDES PENDIENTES ---
-async function verificarSolicitudesPendientes() {
-    if (isCheckingSolicitudes) {
-        console.log("Ya se están verificando las solicitudes. Ignorando llamada duplicada.");
-        return;
-    }
-    
-    isCheckingSolicitudes = true;
-    
-    const solicitudList = document.getElementById('solicitud-list');
-    const notificationContainer = document.getElementById('solicitud-notification-container');
-    
-    // Limpiar la lista primero
-    if (solicitudList) {
-        solicitudList.innerHTML = '';
-    }
-    
-    if (notificationContainer) {
-        notificationContainer.style.display = 'none';
-    }
-
-    if (!db) {
-        console.error("Firestore no está inicializado (verificarSolicitudesPendientes)");
-        isCheckingSolicitudes = false;
-        return;
-    }
-
-    try {
-        const querySnapshot = await db.collection('solicitudesRepuestos').where('estado', '==', 'Pendiente').get();
-        let solicitudesPendientes = [];
-
-        querySnapshot.forEach(doc => {
-            const solicitud = doc.data();
-            solicitudesPendientes.push({
-                repuesto: solicitud.repuesto,
-                cantidad: solicitud.cantidad
-            });
-        });
-
-        if (solicitudesPendientes.length > 0 && solicitudList && notificationContainer) {
-            solicitudesPendientes.forEach(solicitud => {
-                const li = document.createElement('li');
-                li.textContent = `- ${solicitud.repuesto} (Cantidad: ${solicitud.cantidad})`;
-                solicitudList.appendChild(li);
             });
             notificationContainer.style.display = 'block';
         } else if (notificationContainer) {
@@ -1214,340 +1707,9 @@ async function verificarSolicitudesPendientes() {
         }
 
     } catch (error) {
-        console.error("Error al verificar solicitudes pendientes:", error);
+        console.error("Error al verificar stock bajo:", error);
     } finally {
-        isCheckingSolicitudes = false;
-    }
-}
-
-// --- FUNCIONES NUEVAS PARA LA TABLA DE ENTRADAS ---
-async function actualizarEntrada(docId) {
-    if (!db) {
-        console.error("Firestore no está inicializado (actualizarEntrada)");
-        alert("El sistema no está listo. Intente nuevamente.");
-        return;
-    }
-
-    try {
-        const docRef = db.collection('historialEntradas').doc(docId);
-        const docSnap = await docRef.get();
-
-        if (!docSnap.exists) {
-            alert("El registro de entrada que intentas actualizar ya no existe.");
-            return;
-        }
-        
-        const entrada = docSnap.data();
-
-        // Solicitar nuevos valores para todos los campos
-        const nuevaFecha = prompt(`Actualizar fecha (actual: ${entrada.fecha}):`, entrada.fecha);
-        if (nuevaFecha === null) {
-            alert('Actualización cancelada.');
-            return;
-        }
-
-        const nuevoCodigo = prompt(`Actualizar código (actual: ${entrada.codigo}):`, entrada.codigo);
-        if (nuevoCodigo === null || nuevoCodigo.trim() === '') {
-            alert('Actualización cancelada. El código no puede estar vacío.');
-            return;
-        }
-
-        const nuevoNombre = prompt(`Actualizar producto (actual: ${entrada.nombre}):`, entrada.nombre);
-        if (nuevoNombre === null || nuevoNombre.trim() === '') {
-            alert('Actualización cancelada. El producto no puede estar vacío.');
-            return;
-        }
-
-        const nuevaCantidad = prompt(`Actualizar cantidad (actual: ${entrada.cantidad}):`, entrada.cantidad);
-        if (nuevaCantidad === null || isNaN(parseInt(nuevaCantidad)) || parseInt(nuevaCantidad) <= 0) {
-            alert('Actualización cancelada. La cantidad debe ser un número válido mayor a 0.');
-            return;
-        }
-        const cantidadInt = parseInt(nuevaCantidad);
-
-        // Si cambió el código o el producto, necesitamos verificar el nuevo producto en inventario
-        if (nuevoCodigo !== entrada.codigo || nuevoNombre !== entrada.nombre) {
-            const nuevoProductoQuery = await db.collection('inventario').where('codigo', '==', nuevoCodigo.trim().toUpperCase()).get();
-            
-            if (nuevoProductoQuery.empty) {
-                alert(`El nuevo código "${nuevoCodigo}" no existe en el inventario.`);
-                return;
-            }
-            
-            const nuevoProductoData = nuevoProductoQuery.docs[0].data();
-            if (nuevoProductoData.nombre !== nuevoNombre.trim().toUpperCase()) {
-                alert(`El nombre del producto no coincide con el código. Producto esperado: ${nuevoProductoData.nombre}`);
-                return;
-            }
-        }
-
-        // Calcular la diferencia para actualizar el inventario
-        const diferencia = cantidadInt - entrada.cantidad;
-
-        // Procesar cambios en el inventario
-        if (nuevoCodigo !== entrada.codigo || nuevoNombre !== entrada.nombre) {
-            // Si cambió el producto, revertir el stock del producto anterior y agregar al nuevo
-            const productoAnteriorQuery = await db.collection('inventario').where('codigo', '==', entrada.codigo).limit(1).get();
-            if (!productoAnteriorQuery.empty) {
-                const productoAnteriorDoc = productoAnteriorQuery.docs[0];
-                const productoAnteriorData = productoAnteriorDoc.data();
-                
-                // Verificar stock suficiente para revertir
-                if (productoAnteriorData.stock < entrada.cantidad) {
-                    alert(`No se puede cambiar el producto. Stock insuficiente del producto anterior. Stock actual: ${productoAnteriorData.stock}`);
-                    return;
-                }
-                
-                // Revertir stock del producto anterior
-                await db.collection('inventario').doc(productoAnteriorDoc.id).update({
-                    stock: firebase.firestore.FieldValue.increment(-entrada.cantidad)
-                });
-            }
-            
-            // Agregar stock al nuevo producto
-            const nuevoProductoQuery = await db.collection('inventario').where('codigo', '==', nuevoCodigo.trim().toUpperCase()).limit(1).get();
-            if (!nuevoProductoQuery.empty) {
-                const nuevoProductoDoc = nuevoProductoQuery.docs[0];
-                await db.collection('inventario').doc(nuevoProductoDoc.id).update({
-                    stock: firebase.firestore.FieldValue.increment(cantidadInt)
-                });
-            }
-        } else {
-            // Si es el mismo producto, solo ajustar la cantidad
-            if (diferencia !== 0) {
-                const productoQuery = await db.collection('inventario').where('codigo', '==', entrada.codigo).limit(1).get();
-                
-                if (!productoQuery.empty) {
-                    const productoDoc = productoQuery.docs[0];
-                    const productoData = productoDoc.data();
-                    
-                    // Verificar stock suficiente si es una reducción
-                    if (diferencia < 0 && productoData.stock < Math.abs(diferencia)) {
-                        alert(`Stock insuficiente. Stock actual: ${productoData.stock}. No se puede reducir la cantidad.`);
-                        return;
-                    }
-                    
-                    // Actualizar el stock en inventario
-                    await db.collection('inventario').doc(productoDoc.id).update({
-                        stock: firebase.firestore.FieldValue.increment(diferencia)
-                    });
-                }
-            }
-        }
-        
-        // Actualizar el registro de entrada
-        await docRef.update({
-            fecha: nuevaFecha.trim(),
-            codigo: nuevoCodigo.trim().toUpperCase(),
-            nombre: nuevoNombre.trim().toUpperCase(),
-            cantidad: cantidadInt
-        });
-        
-        alert(`Entrada actualizada exitosamente.\n\nProducto: ${nuevoNombre}\nCódigo: ${nuevoCodigo}\nCantidad: ${cantidadInt}\nFecha: ${nuevaFecha}`);
-        cargarHistorialEntradas();
-        cargarInventarioCompleto();
-        verificarStockBajo();
-        actualizarEstadisticas();
-
-    } catch (error) {
-        console.error("Error al actualizar la entrada: ", error);
-        alert("Hubo un error al actualizar el registro de entrada.");
-    }
-}
-
-async function eliminarEntrada(docId, codigoProducto, nombreProducto, cantidad) {
-    if (confirm(`¿Estás seguro de que quieres eliminar la entrada de ${cantidad} unidades de "${nombreProducto}"?`)) {
-        if (!db) {
-            console.error("Firestore no está inicializado (eliminarEntrada)");
-            alert("El sistema no está listo. Intente nuevamente.");
-            return;
-        }
-
-        try {
-            // Buscar el producto en inventario para revertir el stock
-            const inventarioQuery = await db.collection('inventario').where('codigo', '==', codigoProducto).limit(1).get();
-            if (!inventarioQuery.empty) {
-                const productoDoc = inventarioQuery.docs[0];
-                const productoData = productoDoc.data();
-                
-                // Verificar que al revertir no quede stock negativo
-                if (productoData.stock < cantidad) {
-                    alert(`No se puede eliminar esta entrada. El stock actual (${productoData.stock}) es menor que la cantidad a revertir (${cantidad}).`);
-                    return;
-                }
-                
-                // Revertir el stock en inventario
-                await db.collection('inventario').doc(productoDoc.id).update({
-                    stock: firebase.firestore.FieldValue.increment(-cantidad)
-                });
-            }
-            
-            // Eliminar el registro de entrada
-            await db.collection('historialEntradas').doc(docId).delete();
-            
-            alert('Entrada eliminada exitosamente y stock revertido.');
-            cargarHistorialEntradas();
-            cargarInventarioCompleto();
-            verificarStockBajo();
-            actualizarEstadisticas();
-
-        } catch (error) {
-            console.error("Error al eliminar la entrada: ", error);
-            alert("Hubo un error al eliminar el registro de entrada.");
-        }
-    }
-}
-
-// Función modificada para cargar historial de entradas con acciones
-async function cargarHistorialEntradas() {
-    const tbody = document.querySelector('#tabla-entradas-historial tbody');
-    tbody.innerHTML = '<tr><td colspan="5"><div class="loading">Cargando entradas...</div></td></tr>';
-
-    if (!db) {
-        tbody.innerHTML = '<tr><td colspan="5"><div class="error-message">Error: Firestore no está inicializado</div></td></tr>';
-        return;
-    }
-
-    try {
-        const querySnapshot = await db.collection('historialEntradas').orderBy('fecha', 'desc').get();
-        
-        if(querySnapshot.empty) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="5" style="text-align: center; padding: 30px;">
-                        <i class="fas fa-inbox" style="font-size: 48px; color: #bdc3c7; margin-bottom: 10px;"></i>
-                        <div style="color: #7f8c8d;">No hay entradas registradas</div>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        tbody.innerHTML = '';
-        querySnapshot.forEach(doc => {
-            const item = doc.data();
-            const tr = document.createElement('tr');
-            
-            // Crear botones de forma más explícita
-            const editButton = document.createElement('button');
-            editButton.className = 'btn-icon btn-icon-edit';
-            editButton.innerHTML = '<i class="fas fa-edit"></i>';
-            editButton.title = 'Actualizar entrada';
-            editButton.onclick = () => actualizarEntrada(doc.id);
-            
-            const deleteButton = document.createElement('button');
-            deleteButton.className = 'btn-icon btn-icon-delete';
-            deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
-            deleteButton.title = 'Eliminar entrada';
-            deleteButton.onclick = () => eliminarEntrada(doc.id, item.codigo, item.nombre, item.cantidad);
-            
-            const actionsCell = document.createElement('td');
-            actionsCell.className = 'action-buttons-table';
-            actionsCell.appendChild(editButton);
-            actionsCell.appendChild(deleteButton);
-            
-            tr.innerHTML = `
-                <td>${item.fecha}</td>
-                <td>${item.codigo}</td>
-                <td>${item.nombre}</td>
-                <td>${item.cantidad}</td>
-            `;
-            tr.appendChild(actionsCell);
-            tbody.appendChild(tr);
-        });
-
-    } catch (error) {
-        console.error("Error al cargar historial de entradas: ", error);
-        tbody.innerHTML = '<tr><td colspan="5"><div class="error-message">Error al cargar datos</div></td></tr>';
-    }
-}
-
-// --- FUNCIONES NUEVAS PARA LA TABLA DE SALIDAS ---
-async function actualizarSalida(docId) {
-    if (!db) {
-        console.error("Firestore no está inicializado (actualizarSalida)");
-        alert("El sistema no está listo. Intente nuevamente.");
-        return;
-    }
-
-    try {
-        const docRef = db.collection('repuestosSalida').doc(docId);
-        const docSnap = await docRef.get();
-
-        if (!docSnap.exists) {
-            alert("El registro de salida que intentas actualizar ya no existe.");
-            return;
-        }
-        
-        const salida = docSnap.data();
-
-        // Solicitar nuevos valores para todos los campos
-        const nuevaFecha = prompt(`Actualizar fecha (actual: ${salida.fecha}):`, salida.fecha);
-        if (nuevaFecha === null || nuevaFecha.trim() === '') {
-            alert('Actualización cancelada. La fecha no puede estar vacía.');
-            return;
-        }
-
-        const nuevoRepuesto = prompt(`Actualizar repuesto (actual: ${salida.repuesto}):`, salida.repuesto);
-        if (nuevoRepuesto === null || nuevoRepuesto.trim() === '') {
-            alert('Actualización cancelada. El repuesto no puede estar vacío.');
-            return;
-        }
-
-        const nuevoCliente = prompt(`Actualizar cliente (actual: ${salida.cliente}):`, salida.cliente);
-        if (nuevoCliente === null || nuevoCliente.trim() === '') {
-            alert('Actualización cancelada. El cliente no puede estar vacío.');
-            return;
-        }
-
-        const nuevoNumeroOT = prompt(`Actualizar N° OT (actual: ${salida.numeroOT}):`, salida.numeroOT);
-        if (nuevoNumeroOT === null || nuevoNumeroOT.trim() === '') {
-            alert('Actualización cancelada. El N° OT no puede estar vacío.');
-            return;
-        }
-
-        const nuevaCantidad = prompt(`Actualizar cantidad (actual: ${salida.cantidad}):`, salida.cantidad);
-        if (nuevaCantidad === null || isNaN(parseInt(nuevaCantidad)) || parseInt(nuevaCantidad) <= 0) {
-            alert('Actualización cancelada. La cantidad debe ser un número válido mayor a 0.');
-            return;
-        }
-        const cantidadInt = parseInt(nuevaCantidad);
-
-        const nuevaPlaca = prompt(`Actualizar placa (actual: ${salida.placa || 'N/A'}):`, salida.placa || '');
-        if (nuevaPlaca === null) {
-            alert('Actualización cancelada.');
-            return;
-        }
-
-        const nuevoKilometraje = prompt(`Actualizar kilometraje (actual: ${salida.kilometraje || 'N/A'}):`, salida.kilometraje || '');
-        if (nuevoKilometraje === null) {
-            alert('Actualización cancelada.');
-            return;
-        }
-        const kilometrajeInt = nuevoKilometraje.trim() === '' ? 0 : parseInt(nuevoKilometraje);
-
-// ====== IMPORTAR EXCEL (multi-hoja: STOCK, SALIDAS, ENTRADA/ENTRADAS) =====
-async function importarExcelInventario(event) {
-        // Actualizar el registro de salida
-        await docRef.update({
-            fecha: nuevaFecha.trim(),
-            repuesto: nuevoRepuesto.trim().toUpperCase(),
-            cliente: nuevoCliente.trim(),
-            numeroOT: nuevoNumeroOT.trim(),
-            cantidad: cantidadInt,
-            placa: nuevaPlaca.trim(),
-            kilometraje: kilometrajeInt
-        });
-        
-        alert(`Salida actualizada exitosamente.\n\nRepuesto: ${nuevoRepuesto}\nCliente: ${nuevoCliente}\nN° OT: ${nuevoNumeroOT}\nCantidad: ${cantidadInt}\nPlaca: ${nuevaPlaca || 'N/A'}\nKilometraje: ${kilometrajeInt || 'N/A'}`);
-        cargarRepuestosSalida();
-        cargarInventarioCompleto();
-        verificarStockBajo();
-        actualizarEstadisticas();
-
-    } catch (error) {
-        console.error("Error al actualizar la salida: ", error);
-        alert("Hubo un error al actualizar el registro de salida.");
+        isCheckingStock = false;
     }
 }
 

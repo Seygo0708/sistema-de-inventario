@@ -709,7 +709,7 @@ async function cargarSolicitudesAdmin() {
 async function cargarStockAdmin() {
     const tbody = document.querySelector('#tabla-stock-admin tbody');
     tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
-
+    
     if (!db) {
         tbody.innerHTML = '<tr><td colspan="6">Error: Firestore no está inicializado.</td></tr>';
         console.error("Firestore no está inicializado (cargarStockAdmin)");
@@ -1526,70 +1526,8 @@ async function actualizarSalida(docId) {
         }
         const kilometrajeInt = nuevoKilometraje.trim() === '' ? 0 : parseInt(nuevoKilometraje);
 
-        // Si cambió el repuesto o la cantidad, necesitamos verificar el inventario
-        if (nuevoRepuesto !== salida.repuesto || cantidadInt !== salida.cantidad) {
-            // Buscar el nuevo repuesto en inventario
-            const nuevoRepuestoQuery = await db.collection('inventario').where('nombre', '==', nuevoRepuesto.trim().toUpperCase()).get();
-            
-            if (nuevoRepuestoQuery.empty) {
-                alert(`El nuevo repuesto "${nuevoRepuesto}" no existe en el inventario.`);
-                return;
-            }
-            
-            const nuevoRepuestoData = nuevoRepuestoQuery.docs[0].data();
-            
-            // Si es el mismo repuesto pero cambió la cantidad
-            if (nuevoRepuesto === salida.repuesto) {
-                const diferencia = cantidadInt - salida.cantidad;
-                
-                if (diferencia > 0) {
-                    // Si aumentó la cantidad, verificar stock suficiente
-                    if (nuevoRepuestoData.stock < diferencia) {
-                        alert(`Stock insuficiente para aumentar la cantidad. Stock actual: ${nuevoRepuestoData.stock}`);
-                        return;
-                    }
-                    
-                    // Restar la diferencia del inventario
-                    await db.collection('inventario').doc(nuevoRepuestoQuery.docs[0].id).update({
-                        stock: firebase.firestore.FieldValue.increment(-diferencia)
-                    });
-                } else if (diferencia < 0) {
-                    // Si disminuyó la cantidad, agregar la diferencia al inventario
-                    await db.collection('inventario').doc(nuevoRepuestoQuery.docs[0].id).update({
-                        stock: firebase.firestore.FieldValue.increment(Math.abs(diferencia))
-                    });
-                }
-            } else {
-                // Si cambió el repuesto, revertir el stock del repuesto anterior y descontar del nuevo
-                
-                // 1. Revertir stock del repuesto anterior
-                const repuestoAnteriorQuery = await db.collection('inventario').where('nombre', '==', salida.repuesto).get();
-                if (!repuestoAnteriorQuery.empty) {
-                    await db.collection('inventario').doc(repuestoAnteriorQuery.docs[0].id).update({
-                        stock: firebase.firestore.FieldValue.increment(salida.cantidad)
-                    });
-                }
-                
-                // 2. Verificar stock del nuevo repuesto
-                if (nuevoRepuestoData.stock < cantidadInt) {
-                    alert(`Stock insuficiente del nuevo repuesto. Stock actual: ${nuevoRepuestoData.stock}`);
-                    
-                    // Revertir el revertido si falla
-                    if (!repuestoAnteriorQuery.empty) {
-                        await db.collection('inventario').doc(repuestoAnteriorQuery.docs[0].id).update({
-                            stock: firebase.firestore.FieldValue.increment(-salida.cantidad)
-                        });
-                    }
-                    return;
-                }
-                
-                // 3. Descontar del nuevo repuesto
-                await db.collection('inventario').doc(nuevoRepuestoQuery.docs[0].id).update({
-                    stock: firebase.firestore.FieldValue.increment(-cantidadInt)
-                });
-            }
-        }
-        
+// ====== IMPORTAR EXCEL (multi-hoja: STOCK, SALIDAS, ENTRADA/ENTRADAS) =====
+async function importarExcelInventario(event) {
         // Actualizar el registro de salida
         await docRef.update({
             fecha: nuevaFecha.trim(),

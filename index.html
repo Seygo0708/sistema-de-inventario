@@ -413,6 +413,12 @@
                             <!-- LISTA DE INVENTARIO -->
                             <div class="sub-section-container full-width">
                                 <h4><i class="fas fa-list"></i> Lista de Productos en Inventario</h4>
+                                <div class="action-bar" style="margin: 8px 0 12px; display:flex; gap:10px; flex-wrap:wrap;">
+                                    <button class="btn btn-success" onclick="document.getElementById('excel-inventario').click()">
+                                        <i class="fas fa-file-excel"></i> Importar Excel
+                                    </button>
+                                    <input id="excel-inventario" type="file" accept=".xlsx,.xls" style="display:none" onchange="importarExcelInventario(event)">
+                                </div>
                                 <div class="table-responsive">
                                     <table id="tabla-inventario">
                                         <thead>
